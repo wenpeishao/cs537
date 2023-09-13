@@ -1,0 +1,25 @@
+.TH example 2 2023-08-11
+.SH name
+example - an example program
+.SH SYNOPSIS
+#example comment
+/fBexample/fP -k -W [/fIoptions/fP] argument blah
+.SH Description
+This is a fake example program.  The command line switches, options, and
+arguments don't actually exist since this is just an example.
+
+This text is in a new paragraph.  Blank lines should also be output.
+So this /fUparagraph/fP should have a blank line before it.
+You should see /fBbold/fP, /fIitalic/fP, and /fUunderline/fP and
+these can be /fB/fI/fUcombined/fP.  You can also output // characters.
+
+Typical man pages will have a NAME section, a SYNOPSIS section,
+and a DESCRIPTION section (at least).  The NAME and DESCRIPTION
+sections are important for the apropos program.
+.SH other
+Words from this section should not be searched when using wapropos.
+That is also true for all other sections except NAME and DESCRIPTION.
+I've put the word 'blah' in this section and in the SYNPOSIS section
+of this page and in the example(1) page but in the DESCRIPTION section.
+So when you search for that, you should only see example(1) but if you
+search for something else (say fake) then you should see both.
