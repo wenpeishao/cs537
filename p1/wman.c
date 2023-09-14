@@ -37,9 +37,9 @@ void open_file(char *file_name, DIR *path){
             //Read through the file and print it out
             if(fgets(content, sizeof(content), fp)!=NULL){
                 printf("%s", content);
+                }
             }
-        }
-
+        }   
     }
     return;
 }
@@ -56,7 +56,7 @@ int main(int argc, char *argv[]){
         int pageNumber = (int)argv[1];
         if(pageNumber < 1 && pageNumber > 9){
             printf("invalid section\n");
-            exit(1);
+            return(1);
         }
         //path that need to get fixed
         char *path[100] = "./man_pages/man";
@@ -66,11 +66,10 @@ int main(int argc, char *argv[]){
         strcat(path, page);
         char *file_name = argv[2];
     }
-    // no arguemnt
-    else{
+    //no arguement tan
+    else if(argc < 2){
         printf("What manual page do you want?\nFor example, try 'wman wman'\n" );
         return 0;
     }
- 
     return 0;
 }
