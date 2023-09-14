@@ -24,6 +24,7 @@ void open_file(char *file_name, DIR *path){
             strcmp("..",rd->d_name)==0){
                 continue;
             }
+            //open next dir to find the file 
             open_file(file_name, opendir(rd->d_name));
         }
         else{
@@ -66,6 +67,7 @@ int main(int argc, char *argv[]){
         //appends the page string to the path string make the path we are looking for at the man_pages directory
         strcat(path, page);
         char *file_name = argv[2];
+        open_file(file_name, opendir(path));
     }
     //no arguement tan
     else if(argc < 2){
