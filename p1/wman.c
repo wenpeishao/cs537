@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <dirent.h>
 #include <unistd.h>
@@ -47,7 +48,7 @@ int main(int argc, char *argv[]){
     //one arguemnt need to find the file at the hole directory
     if(argc == 2){
         //path that starts search
-        char *path [100] = "./man_pages";
+        char path [100] = "./man_pages";
         char *file_name = argv[1];
         open_file(file_name, opendir(path));
     }
@@ -59,7 +60,7 @@ int main(int argc, char *argv[]){
             return(1);
         }
         //path that need to get fixed
-        char *path[100] = "./man_pages/man";
+        char path[100] = "./man_pages/man";
         //add the arguement from user input to the path
         char page = (char)pageNumber;
         //appends the page string to the path string make the path we are looking for at the man_pages directory
