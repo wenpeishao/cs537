@@ -10,14 +10,21 @@
     return -1 if can't find the file
     reference: https://stackoverflow.com/questions/8149569/scan-a-directory-to-find-files-in-c?noredirect=1&lq=1
 */
-int open_file(char *file_name, DIR *path){
+int open_file(char *file_name, char *path){
+    DIR *dp;
     //rd is the pionter to the return val of readdir
     struct dirent *rd;
     //statbuf is the 
     struct stat statbuf;
     char content[1000];
+    fprintf(stderr,"now open: %s\n", path);
     //keep reading all file in the path
-    while((rd = readdir(path)) != NULL ){
+    if((dp = opendir(path)) == NULL) {
+        fprintf(stderr,"cannot open directory: %s\n", path);
+        return -1;
+    }
+    chdir(path);
+    while((rd = readdir($)) != NULL ){
         lstat(rd->d_name,&statbuf);
         if(S_ISDIR(statbuf.st_mode)){
             //avoid to search through the "." and ".." directory
@@ -26,11 +33,11 @@ int open_file(char *file_name, DIR *path){
                 continue;
             }
             //open next dir to find the file 
-            open_file(file_name, opendir(rd->d_name));
-            // If file is found in a subdirectory, return immediately
-            if(open_file(file_name, opendir(rd->d_name)) == 0) {
-                return 0;
-            }
+            open_file(file_name, rd->d_name);
+            // // If file is found in a subdirectory, return immediately
+            // if(open_file(file_name, rd->d_name) == 0) {
+            //     return 0;
+            // }
         }
         else{
             //When file is a regular file. and name are same with file_name break the loop. find the file.
@@ -47,8 +54,10 @@ int open_file(char *file_name, DIR *path){
             }
             fclose(fp);  // Close the file after reading
             return 0;  // File found and opened successfully
-
+            }else{
+                return -1;
             }
+
         }   
     }
     return -1;
@@ -59,28 +68,28 @@ int main(int argc, char *argv[]){
     //one arguemnt need to find the file at the hole directory
     if(argc == 2){
         //path that starts search
-        char path [100] = "./man_pages";
-        strcpy(file_name, argv[1]);
-        open_file(file_name, opendir(path));
+        char path [100] = "man_pages";
+        file_name = argv[1];
+        open_file(file_name, path);
     }
     //two arguement need to loate a directory
     else if(argc > 2){
         //take the page number from the user input
         int pageNumber = *argv[1];
         //if pagenumber is wrong return 1
-        if(pageNumber < 1 && pageNumber > 9){
+        if(pageNumber < 1 || pageNumber > 9){
             printf("invalid section\n");
             return(1);
         }
         //path that need to get fixed
-        char path[100] = "./man_pages/man";
+        char path[100] = "/man_pages/man";
         //add the arguement from user input to the path
         char page = (char)pageNumber;
         //appends the page string to the path string make the path we are looking for at the man_pages directory
         strcat(path, &page);
         //get the name of the file
         strcpy(file_name, argv[2]);
-        open_file(file_name, opendir(path));
+        open_file(file_name, path);
     }
     //no arguement given by user
     else if(argc < 2){
