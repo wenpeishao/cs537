@@ -60,19 +60,22 @@ int open_file(char *file_name, char *path){
     closedir(dp);
     return -1;
 }
+//func check the file is in the directory if it is there, print the file and return 1 if not return 0
 int wman(char *file_name, char *path){
     char buf[100];
-    snprintf(buf, 100,"%s/%s.1", path, file_name);
+    snprintf(buf, 100,"%s/%s.1", path, file_name);//creat the buf that combine the file name with the path
     //printf("%s\n", buf); test output
     FILE *fp = fopen(buf, "r");
-    if (fp == NULL) {
+    if (fp == NULL) {//can't find the file
         printf("cannot open file\n");
-    return(1);
+        fclose(fp);
+        return 0;//can't ipen the file
     }
     char outbuf[512];
-    while(fgets(outbuf, 512, fp)){
+    while(fgets(outbuf, 512, fp)){//print out the hole file
         printf("%s", outbuf);
     }
+    fclose(fp);
     return 1;
 }
 
@@ -92,7 +95,8 @@ int main(int argc, char *argv[]){
                 return 0;
             }
         }
-        //TODO return value = 0 found the file
+        //todo can't find the file in the directory
+        return 1;
     }
     //two arguement need to loate a directory
     else if(argc > 2){
