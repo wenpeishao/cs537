@@ -46,16 +46,17 @@ void open_file(char *file_name, DIR *path){
     return;
 }
 int main(int argc, char *argv[]){   
+        char *file_name;
     //one arguemnt need to find the file at the hole directory
     if(argc == 2){
         //path that starts search
         char path [100] = "./man_pages";
-        char *file_name = argv[1];
+        strcpy(file_name, argv[1]);
         open_file(file_name, opendir(path));
     }
     //two arguement need to loate a directory
     else if(argc > 2){
-        int pageNumber = (int)argv[1];
+        int pageNumber = *argv[1];
         if(pageNumber < 1 && pageNumber > 9){
             printf("invalid section\n");
             return(1);
@@ -65,8 +66,10 @@ int main(int argc, char *argv[]){
         //add the arguement from user input to the path
         char page = (char)pageNumber;
         //appends the page string to the path string make the path we are looking for at the man_pages directory
-        strcat(path, page);
-        char *file_name = argv[2];
+        strcat(path, &page);
+        //get the name of the file
+        char *file_name;
+        strcpy(file_name, argv[2]);
         open_file(file_name, opendir(path));
     }
     //no arguement tan
