@@ -95,7 +95,7 @@ int main(int argc, char *argv[]){
             }
         }
         //can't find the file in the directory
-        printf("No manual entry for page\n");
+        printf("No manual entry for %s\n", file_name);
     }
     //two arguement need to loate a directory
     else if(argc > 2){
