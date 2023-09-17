@@ -1,9 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <dirent.h>
-#include <unistd.h>
-#include <sys/stat.h>
 
 /*
     Helper func that used to loacte the file at directory and open the file, print all the string in that file;
@@ -103,11 +100,11 @@ int main(int argc, char *argv[]){
     //two arguement need to loate a directory
     else if(argc > 2){
         //take the page number from the user input
-        char* pageNumber;
-        pageNumber = argv[1];
+        int pageNumber;
+        pageNumber = atoi(argv[1]);
         file_name = argv[2];
         //if pagenumber is wrong return 1
-        if(pageNumber[0] < '1' || pageNumber[0] > '9'){
+        if(pageNumber < 1 || pageNumber > 9){
             printf("invalid section\n");
             exit(1);
         }
