@@ -100,20 +100,21 @@ int main(int argc, char *argv[]){
     //two arguement need to loate a directory
     else if(argc > 2){
         //take the page number from the user input
-        int pageNumber = *argv[1];
+        char* pageNumber;
+        pageNumber = argv[1];
+        file_name = argv[2];
         //if pagenumber is wrong return 1
-        if(pageNumber < 1 || pageNumber > 9){
+        if(pageNumber[0] < '1' || pageNumber[0] > '9'){
             printf("invalid section\n");
             exit(1);
         }
         //path that need to get fixed
         char path[100] = "./man_pages/man";
         //add the arguement from user input to the path
-        sprintf(path, "./man_pages/man%d", pageNumber);
+        sprintf(path, "./man_pages/man%s", pageNumber);
         //get the name of the file
-        strcpy(file_name, argv[2]);
         //TODO if return value = 0 found the file
-        if(open_file(file_name, path)){
+        if(wman(file_name, path)){
         
         }else{
             printf("No manual entry for page in section section\n");
