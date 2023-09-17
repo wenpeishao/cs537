@@ -67,7 +67,6 @@ int wman(char *file_name, char *path){
     //printf("%s\n", buf); test output
     FILE *fp = fopen(buf, "r");
     if (fp == NULL) {//can't find the file
-        printf("cannot open file\n");
         fclose(fp);
         return 0;//can't ipen the file
     }
@@ -95,8 +94,8 @@ int main(int argc, char *argv[]){
                 return 0;
             }
         }
-        //todo can't find the file in the directory
-        return 1;
+        //can't find the file in the directory
+        printf("No manual entry for page\n");
     }
     //two arguement need to loate a directory
     else if(argc > 2){
@@ -105,7 +104,7 @@ int main(int argc, char *argv[]){
         //if pagenumber is wrong return 1
         if(pageNumber < 1 || pageNumber > 9){
             printf("invalid section\n");
-            return(1);
+            exit(1);
         }
         //path that need to get fixed
         char path[100] = "./man_pages/man";
@@ -114,12 +113,15 @@ int main(int argc, char *argv[]){
         //get the name of the file
         strcpy(file_name, argv[2]);
         //TODO if return value = 0 found the file
-        open_file(file_name, path);
+        if(open_file(file_name, path)){
+        
+        }else{
+            printf("No manual entry for page in section section\n");
+        }
     }
     //no arguement given by user
     else if(argc < 2){
         printf("What manual page do you want?\nFor example, try 'wman wman'\n" );
-        return 0;
     }
     return 0;
 }
