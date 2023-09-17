@@ -120,7 +120,7 @@ int main(int argc, char *argv[]){
         if(wman(file_name, path)){
         
         }else{
-            printf("No manual entry for page in section %s\n", pageNumber);
+            printf("No manual entry for %s in section %s\n", file_name, pageNumber);
             return 0;
         }
     }
