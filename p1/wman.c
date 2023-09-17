@@ -111,13 +111,13 @@ int main(int argc, char *argv[]){
         //path that need to get fixed
         char path[100] = "./man_pages/man";
         //add the arguement from user input to the path
-        sprintf(path, "./man_pages/man%s", pageNumber);
+        sprintf(path, "./man_pages/man%i", pageNumber);
         //get the name of the file
         //if return value = 0 found the file
         if(wman(file_name, path)){
         
         }else{
-            printf("No manual entry for %s in section %s\n", file_name, pageNumber);
+            printf("No manual entry for %s in section %i\n", file_name, pageNumber);
             return 0;
         }
     }
