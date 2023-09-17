@@ -4,12 +4,14 @@
 #include <dirent.h>
 #include <unistd.h>
 #include <sys/stat.h>
+
 /*
     Helper func that used to loacte the file at directory and open the file, print all the string in that file;
     return 0 if successfully open the file 
     return -1 if can't find the filehttps://stackoverflow.com/questions/8149569/scan-a-directory-to-find-files-in-c?noredirect=1&lq=1
     reference: 
 */
+/* no longer using
 int open_file(char *file_name, char *path){
     DIR *dp;
     //rd is the pionter to the return val of readdir
@@ -60,6 +62,7 @@ int open_file(char *file_name, char *path){
     closedir(dp);
     return -1;
 }
+*/
 //func check the file is in the directory if it is there, print the file and return 1 if not return 0
 int wman(char *file_name, char *path){
     char buf[100];
@@ -67,7 +70,7 @@ int wman(char *file_name, char *path){
     //printf("%s\n", buf); test output
     FILE *fp = fopen(buf, "r");
     if (fp == NULL) {//can't find the file
-        fclose(fp);
+        //fclose(fp);
         return 0;//can't ipen the file
     }
     char outbuf[512];
