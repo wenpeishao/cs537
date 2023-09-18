@@ -116,7 +116,7 @@ int wgroff(const char *input_file)
     // write the first line
     char firstLine[500];
     char title[180];
-    sprintf(title, "%s(%s)", header[1], header[2]);
+    sprintf(title, "\033[1m%s(%s)\033[0m", header[1], header[2]);
     strcat(firstLine, title);
     while (strlen(firstLine) <= (79 - strlen(title)))
     {
@@ -139,7 +139,7 @@ int wgroff(const char *input_file)
             sh = strchr(line, ' ') + 1;
             sh = to_uppercase(sh);
             char sub_head[512];
-            sprintf(sub_head, "\n\033[1m%s/", sh);
+            sprintf(sub_head, "\n\033[1m%s\033[0m", sh);
             fputs(sub_head, nfp);
         }
         else
