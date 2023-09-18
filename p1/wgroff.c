@@ -110,7 +110,7 @@ int wgroff(const char *input_file)
     char title[180];
     sprintf(title, "%s(%s)", header[1], header[2]);
     strcat(firstLine, title);
-    while (strlen(firstLine) <= (80 - strlen(title)))
+    while (strlen(firstLine) <= (79 - strlen(title)))
     {
         strcat(firstLine, " ");
     }
@@ -133,12 +133,13 @@ int wgroff(const char *input_file)
             fputs(formated_line, nfp);
         }
     }
-    while (strlen(line) <= (80 - strlen(header[3])))
+    char last_len[100];
+    while (strlen(last_len) <= (80 - strlen(time)))
     {
-        strcat(line, " ");
+        strcat(last_len, " ");
     }
-    strcat(line, time);
-    fputs(line, nfp);
+    strcat(last_len, time);
+    fputs(last_len, nfp);
     fclose(nfp);
     fclose(ifp);
     return 0;
@@ -152,7 +153,7 @@ int main(int argc, char *argv[])
         return 0;
     }
     char path[100];
-    sprintf(path, "./input_files/%s", argv[1]);
+    sprintf(path, "%s", argv[1]);
     wgroff(path);
     return 0;
 }
