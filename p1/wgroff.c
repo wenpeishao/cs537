@@ -96,10 +96,19 @@ int wgroff(const char *input_file)
         header[i] = strtok(NULL, " ");
     }
     char path[518];
-    sprintf(path, "./man_pages/man%s/%s", header[2], header[1]);
+    sprintf(path, "%s.%s", header[1], header[2]);
+    int section = atoi(header[2]);
+    if (section < 1 || section > 9)
+    {
+        printf("Improper formatting on line %i\n", lineno);
+        exit(0);
+    }
+    {
+    }
+
     char time[50];
     strcpy(time, header[3]);
-    if (strlen(time) != 11)
+    if (strlen(time) != 11) // check time
     {
         printf("Improper formatting on line %i\n", lineno);
         exit(0);
