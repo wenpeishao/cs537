@@ -133,13 +133,13 @@ int wgroff(const char *input_file)
         {
             continue;
         }
-        if (strstr(line, ".SH"))
+        else if (strstr(line, ".SH"))
         {
             char *sh;
             sh = strchr(line, ' ') + 1;
             sh = to_uppercase(sh);
             char sub_head[512];
-            sprintf(sub_head, "\n\033[1m%s", sh);
+            sprintf(sub_head, "\n\033[1m%s/", sh);
             fputs(sub_head, nfp);
         }
         else
@@ -149,7 +149,6 @@ int wgroff(const char *input_file)
             fputs(formated_line, nfp);
         }
     }
-    fputs("\n", nfp);
 
     char last_len[100];
     while (strlen(last_len) < ((80 - strlen(time)) / 2))
