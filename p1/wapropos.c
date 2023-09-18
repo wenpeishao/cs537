@@ -82,7 +82,7 @@ int open_file(const char *keyword, const char *path, const int section)
                 //printf("section is: %i\n", section);
                 //printf("name_section is: %s\n", trim_name_section);
 
-                printf("%s (%i) %s\n", file_name, section, trim_name_section);
+                printf("%s (%i) %s", file_name, section, trim_name_section);
             }
             free(name_section);
         }
