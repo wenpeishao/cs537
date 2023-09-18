@@ -103,8 +103,6 @@ int wgroff(const char *input_file)
         printf("Improper formatting on line %i\n", lineno);
         exit(0);
     }
-    {
-    }
 
     char time[50];
     strcpy(time, header[3]);
@@ -143,11 +141,15 @@ int wgroff(const char *input_file)
         }
     }
     char last_len[100];
-    while (strlen(last_len) <= (80 - strlen(time)))
+    while (strlen(last_len) <= ((80 - strlen(time)) / 2))
     {
         strcat(last_len, " ");
     }
     strcat(last_len, time);
+    while (strlen(last_len) <= (80 - strlen(time)))
+    {
+        strcat(last_len, " ");
+    }
     fputs(last_len, nfp);
     fclose(nfp);
     fclose(ifp);
