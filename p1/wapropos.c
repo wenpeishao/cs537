@@ -25,7 +25,7 @@ int open_file(const char *keyword, const char *path, const int section)
         //fprintf(stderr, "now checking: %s\n", rd->d_name);
         if (DT_REG == rd->d_type)
         { // It is a reg file start to read
-            char buf[255];
+            char buf[518];
             int found_file = 0;
             snprintf(buf, sizeof(buf), "%s%s", path, rd->d_name);
             // When file is a regular file. and name are same with file_name break the loop. find the file.
@@ -38,7 +38,7 @@ int open_file(const char *keyword, const char *path, const int section)
                 // printf("%s\n",content);
                 if (strstr(content, "1mNAME"))
                 {
-                    char line[100];
+                    char line[518];
                     while (fgets(line, sizeof(line), fp) != NULL)
                     {
                         if (line[0] == '\n')
@@ -55,7 +55,7 @@ int open_file(const char *keyword, const char *path, const int section)
                 }
                 if (strstr(content, "DESCRIPTION"))
                 {
-                    char line[100];
+                    char line[518];
                     while (fgets(line, sizeof(line), fp) != NULL)
                     {
                         if (line[0] == '\n')
@@ -101,7 +101,7 @@ int main(int argc, char *argv[])
     int found = 0;
     for (int i = 1; i < 10; i++)
     {
-        char path[100];
+        char path[518];
         sprintf(path, "./man_pages/man%i/", i);
         if(open_file(keyword, path, i)){
             found = 1;
