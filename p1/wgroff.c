@@ -115,7 +115,7 @@ int wgroff(const char *input_file)
         strcat(firstLine, " ");
     }
     strcat(firstLine, title);
-    sprintf(firstLine, "%s\n", firstLine);
+    strcat(firstLine, "\n");
     fputs(firstLine, nfp);
     while (fgets(line, sizeof(line), ifp) != NULL)
     {
