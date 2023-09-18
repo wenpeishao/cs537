@@ -97,6 +97,13 @@ int wgroff(const char *input_file)
     }
     char path[518];
     sprintf(path, "./man_pages/man%s/%s", header[2], header[1]);
+    char time[50];
+    strcpy(time, header[3]);
+    if (strlen(time) != 11)
+    {
+        printf("Improper formatting on line %i\n", lineno);
+        exit(0);
+    }
     FILE *nfp = fopen(path, "w+");
     // write the first line
     char firstLine[100];
@@ -130,7 +137,8 @@ int wgroff(const char *input_file)
     {
         strcat(line, " ");
     }
-    strcat(line, header[3]);
+    strcat(line, time);
+    fputs(line, nfp);
     fclose(nfp);
     fclose(ifp);
     return 0;
