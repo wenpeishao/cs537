@@ -32,27 +32,27 @@ char *format_line(char *line)
 
     while (*line != '\0')
     {
-        if (strncmp(line, "/fB", 3) == 0)
+        if (strstr(line, "/fB"))
         {
             strcat(fl_ptr, "\033[1m");
             line += 3;
         }
-        else if (strncmp(line, "/fI", 3) == 0)
+        else if (strstr(line, "/fI") == 0)
         {
             strcat(fl_ptr, "\033[3m");
             line += 3;
         }
-        else if (strncmp(line, "/fU", 3) == 0)
+        else if (strstr(line, "/fU") == 0)
         {
             strcat(fl_ptr, "\033[4m");
             line += 3;
         }
-        else if (strncmp(line, "/fP", 3) == 0)
+        else if (strstr(line, "/fP") == 0)
         {
             strcat(fl_ptr, "\033[0m");
             line += 3;
         }
-        else if (strncmp(line, "//", 2) == 0)
+        else if (strstr(line, "//") == 0)
         {
             strcat(fl_ptr, "/");
             line += 2;
@@ -116,7 +116,7 @@ int wgroff(const char *input_file)
     // write the first line
     char firstLine[500];
     char title[180];
-    sprintf(title, "\033[1m%s(%s)\033[0m", header[1], header[2]);
+    sprintf(title, "%s(%s)", header[1], header[2]);
     strcat(firstLine, title);
     while (strlen(firstLine) <= (79 - strlen(title)))
     {
