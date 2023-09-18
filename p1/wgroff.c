@@ -133,7 +133,7 @@ int wgroff(const char *input_file)
             char *sh;
             sh = strchr(line, ' ') + 1;
             sh = to_uppercase(sh);
-            char *sub_head;
+            char sub_head[512];
             sprintf(sub_head, "\n%s", sh);
             fputs(sub_head, nfp);
         }
