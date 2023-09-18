@@ -106,7 +106,8 @@ int wgroff(const char *input_file)
 
     char time[50];
     strcpy(time, header[3]);
-    if (strlen(time) != 11) // check time
+    time[strlen(time) - 1] = 0;
+    if (strlen(time) != 10) // check time
     {
         printf("Improper formatting on line %i\n", lineno);
         exit(0);
@@ -132,25 +133,32 @@ int wgroff(const char *input_file)
             char *sh;
             sh = strchr(line, ' ') + 1;
             sh = to_uppercase(sh);
-            fputs(sh, nfp);
+            char *sub_head;
+            sprintf(sub_head, "\n%s", sh);
+            fputs(sub_head, nfp);
         }
         else
         {
             char *formated_line = format_line(line);
+
             fputs(formated_line, nfp);
         }
     }
+    fputs("\n", nfp);
+
     char last_len[100];
-    while (strlen(last_len) <= ((80 - strlen(time)) / 2))
+    while (strlen(last_len) <= ((79 - strlen(time)) / 2))
     {
         strcat(last_len, " ");
     }
     strcat(last_len, time);
-    while (strlen(last_len) <= (80 - strlen(time)))
+    while (strlen(last_len) < 80)
     {
         strcat(last_len, " ");
     }
     fputs(last_len, nfp);
+    fputs("\n", nfp);
+
     fclose(nfp);
     fclose(ifp);
     return 0;
