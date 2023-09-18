@@ -3,6 +3,24 @@
 #include <string.h>
 #include <assert.h>
 #include <ctype.h>
+char *to_uppercase(const char *input)
+{
+    char *result = malloc(strlen(input) + 1);
+    if (!result)
+    {
+        perror("Memory allocation failed");
+        exit(1);
+    }
+
+    char *ptr = result;
+    while (*input)
+    {
+        *ptr++ = toupper(*input++);
+    }
+    *ptr = '\0';
+
+    return result;
+}
 
 char *format_line(char *line)
 {
@@ -98,21 +116,14 @@ int wgroff(const char *input_file)
         if (strstr(line, ".SH"))
         {
             char *sh;
-            char subheader[518];
-            sh = strchr(line, ' ');
-            while (*sh) // sh字符串转换大小写
-            {
-
-                sh++;
-            }
-            sprintf(subheader, "%s\n\n", sh);
-            printf("%s", subheader);
+            sh = strchr(line, ' ') + 1;
+            sh = to_uppercase(sh);
             fputs(sh, nfp);
-            fclose(nfp);
         }
         else
         {
-            char *line = format_line(line);
+            char *formated_line = format_line(line);
+            fputs(formated_line, nfp);
         }
     }
     while (strlen(line) <= (80 - strlen(header[3])))
