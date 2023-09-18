@@ -106,8 +106,8 @@ int wgroff(const char *input_file)
     }
     FILE *nfp = fopen(path, "w+");
     // write the first line
-    char firstLine[100];
-    char title[80];
+    char firstLine[500];
+    char title[180];
     sprintf(title, "%s(%s)", header[1], header[2]);
     strcat(firstLine, title);
     while (strlen(firstLine) <= (80 - strlen(title)))
