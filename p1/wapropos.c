@@ -53,7 +53,7 @@ int open_file(const char *keyword, const char *path, const int section)
                         strcat(name_section, line);
                     }
                 }
-                if (strstr(content, "DESCRIPTION"))
+                if (strstr(content, "1mDESCRIPTION"))
                 {
                     char line[518];
                     while (fgets(line, sizeof(line), fp) != NULL)
