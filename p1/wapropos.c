@@ -25,7 +25,7 @@ int open_file(const char *keyword, const char *path, const int section)
         //fprintf(stderr, "now checking: %s\n", rd->d_name);
         if (DT_REG == rd->d_type)
         { // It is a reg file start to read
-            char buf[100];
+            char buf[255];
             int found_file = 0;
             snprintf(buf, sizeof(buf), "%s%s", path, rd->d_name);
             // When file is a regular file. and name are same with file_name break the loop. find the file.
