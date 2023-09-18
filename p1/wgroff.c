@@ -32,37 +32,35 @@ char *format_line(char *line)
 
     while (*line != '\0')
     {
-        if (strstr(line, "/fB"))
+        if (strncmp(fl_ptr, "/fB", 3) == 0)
         {
-            strcat(fl_ptr, "\033[1m");
-            line += 3;
+            strcat(fl, "\033[1m");
+            fl_ptr += 3;
         }
-        else if (strstr(line, "/fI") == 0)
+        else if (strncmp(fl_ptr, "/fI", 3) == 0)
         {
-            strcat(fl_ptr, "\033[3m");
-            line += 3;
+            strcat(fl, "\033[3m");
+            fl_ptr += 3;
         }
-        else if (strstr(line, "/fU") == 0)
+        else if (strncmp(fl_ptr, "/fU", 3) == 0)
         {
-            strcat(fl_ptr, "\033[4m");
-            line += 3;
+            strcat(fl, "\033[4m");
+            fl_ptr += 3;
         }
-        else if (strstr(line, "/fP") == 0)
+        else if (strncmp(fl_ptr, "/fP", 3) == 0)
         {
-            strcat(fl_ptr, "\033[0m");
-            line += 3;
+            strcat(fl, "\033[0m");
+            fl_ptr += 3;
         }
-        else if (strstr(line, "//") == 0)
+        else if (strncmp(fl_ptr, "//", 2) == 0)
         {
-            strcat(fl_ptr, "/");
-            line += 2;
+            strcat(fl, "/");
+            fl_ptr += 2;
         }
         else
         {
-            fl_ptr[0] = *line; // Append just the current character
-            fl_ptr[1] = '\0';  // Null-terminate
-            fl_ptr++;          // Move the pointer for next character
-            line++;            // Go to the next character
+            strncat(fl, fl_ptr, 1);
+            fl_ptr++;
         }
     }
 
@@ -151,6 +149,7 @@ int wgroff(const char *input_file)
     }
 
     char last_len[100];
+    memset(last_len, 0, sizeof(last_len));
     while (strlen(last_len) < ((80 - strlen(time)) / 2))
     {
         strcat(last_len, " ");
