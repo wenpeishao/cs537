@@ -125,16 +125,21 @@ int wgroff(const char *input_file)
     strcat(firstLine, title);
     // strcat(firstLine, "\n");
     fputs(firstLine, nfp);
+    fputs("\n", nfp);
     while (fgets(line, sizeof(line), ifp) != NULL)
     {
         lineno++;
+        if (strstr(line, "#"))
+        {
+            continue;
+        }
         if (strstr(line, ".SH"))
         {
             char *sh;
             sh = strchr(line, ' ') + 1;
             sh = to_uppercase(sh);
             char sub_head[512];
-            sprintf(sub_head, "\n%s", sh);
+            sprintf(sub_head, "\n\033[1m%s", sh);
             fputs(sub_head, nfp);
         }
         else
@@ -147,7 +152,7 @@ int wgroff(const char *input_file)
     fputs("\n", nfp);
 
     char last_len[100];
-    while (strlen(last_len) <= ((79 - strlen(time)) / 2))
+    while (strlen(last_len) < ((80 - strlen(time)) / 2))
     {
         strcat(last_len, " ");
     }
