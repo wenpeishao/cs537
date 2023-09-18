@@ -32,35 +32,37 @@ char *format_line(char *line)
 
     while (*line != '\0')
     {
-        if (strncmp(fl_ptr, "/fB", 3) == 0)
+        if (strncmp(line, "/fB", 3) == 0)
         {
-            strcat(fl, "\033[1m");
-            fl_ptr += 3;
+            strcat(fl_ptr, "\033[1m");
+            line += 3;
         }
-        else if (strncmp(fl_ptr, "/fI", 3) == 0)
+        else if (strncmp(line, "/fI", 3) == 0)
         {
-            strcat(fl, "\033[3m");
-            fl_ptr += 3;
+            strcat(fl_ptr, "\033[3m");
+            line += 3;
         }
-        else if (strncmp(fl_ptr, "/fU", 3) == 0)
+        else if (strncmp(line, "/fU", 3) == 0)
         {
-            strcat(fl, "\033[4m");
-            fl_ptr += 3;
+            strcat(fl_ptr, "\033[4m");
+            line += 3;
         }
-        else if (strncmp(fl_ptr, "/fP", 3) == 0)
+        else if (strncmp(line, "/fP", 3) == 0)
         {
-            strcat(fl, "\033[0m");
-            fl_ptr += 3;
+            strcat(fl_ptr, "\033[0m");
+            line += 3;
         }
-        else if (strncmp(fl_ptr, "//", 2) == 0)
+        else if (strncmp(line, "//", 2) == 0)
         {
-            strcat(fl, "/");
-            fl_ptr += 2;
+            strcat(fl_ptr, "/");
+            line += 2;
         }
         else
         {
-            strncat(fl, fl_ptr, 1);
-            fl_ptr++;
+            fl_ptr[0] = *line; // Append just the current character
+            fl_ptr[1] = '\0';  // Null-terminate
+            fl_ptr++;          // Move the pointer for next character
+            line++;            // Go to the next character
         }
     }
 
