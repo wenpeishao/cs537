@@ -66,7 +66,7 @@ char *format_line(char *line)
         }
     }
 
-    strcat(fl_ptr, "\n"); // Append newline at the end
+    // strcat(fl_ptr, "\n"); // Append newline at the end
 
     return fl;
 }
@@ -124,7 +124,7 @@ int wgroff(const char *input_file)
         strcat(firstLine, " ");
     }
     strcat(firstLine, title);
-    strcat(firstLine, "\n");
+    // strcat(firstLine, "\n");
     fputs(firstLine, nfp);
     while (fgets(line, sizeof(line), ifp) != NULL)
     {
