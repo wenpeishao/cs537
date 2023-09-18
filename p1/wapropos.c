@@ -36,7 +36,7 @@ int open_file(const char *keyword, const char *path, const int section)
             while (fgets(content, sizeof(content), fp) != NULL)
             {
                 // printf("%s\n",content);
-                if (strstr(content, "1mNAME"))
+                if (strstr(content, "[1mNAME[0m"))
                 {
                     char line[518];
                     while (fgets(line, sizeof(line), fp) != NULL)
@@ -53,7 +53,7 @@ int open_file(const char *keyword, const char *path, const int section)
                         strcat(name_section, line);
                     }
                 }
-                if (strstr(content, "1mDESCRIPTION"))
+                if (strstr(content, "[1mDESCRIPTION[0m"))
                 {
                     char line[518];
                     while (fgets(line, sizeof(line), fp) != NULL)
