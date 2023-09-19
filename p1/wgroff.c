@@ -34,39 +34,42 @@ char *format_line(char *line)
     {
         if (strncmp(line, "/fB", 3) == 0)
         {
-            strcat(fl_ptr, "\033[1m");
+            fl_ptr = strcat(fl_ptr, "\033[1m");
             line += 3;
+            fl_ptr += 4;
         }
         else if (strncmp(line, "/fI", 3) == 0)
         {
             strcat(fl_ptr, "\033[3m");
             line += 3;
+            fl_ptr += 4;
         }
         else if (strncmp(line, "/fU", 3) == 0)
         {
             strcat(fl_ptr, "\033[4m");
             line += 3;
+            fl_ptr += 4;
         }
         else if (strncmp(line, "/fP", 3) == 0)
         {
             strcat(fl_ptr, "\033[0m");
             line += 3;
+            fl_ptr += 4;
         }
         else if (strncmp(line, "//", 2) == 0)
         {
             strcat(fl_ptr, "/");
             line += 2;
+            fl_ptr += 2;
         }
         else
         {
-            fl_ptr[0] = *line; // Append just the current character
-            fl_ptr[1] = '\0';  // Null-terminate
-            fl_ptr++;          // Move the pointer for next character
-            line++;            // Go to the next character
+            *fl_ptr = *line; // Append just the current character
+            fl_ptr++;        // Move the pointer for next character
+            line++;          // Go to the next character
         }
+        printf("current fl is: %s\n", fl);
     }
-
-    // strcat(fl_ptr, "\n"); // Append newline at the end
 
     return fl;
 }
