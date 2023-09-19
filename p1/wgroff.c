@@ -3,6 +3,15 @@
 #include <string.h>
 #include <assert.h>
 #include <ctype.h>
+void remove_trailing_newline(char *str)
+{
+    int len = strlen(str);
+    if (len > 0 && str[len - 1] == '\n')
+    {
+        str[len - 1] = '\0';
+    }
+}
+
 char *to_uppercase(const char *input)
 {
     char *result = malloc(strlen(input) + 1);
@@ -120,15 +129,15 @@ int wgroff(const char *input_file)
     char firstLine[500];
     char title[180];
     sprintf(title, "%s(%s)", header[1], header[2]);
-    strcat(firstLine, title);
+    strcpy(firstLine, title);
     while (strlen(firstLine) <= (79 - strlen(title)))
     {
         strcat(firstLine, " ");
     }
     strcat(firstLine, title);
-    // strcat(firstLine, "\n");
+    strcat(firstLine, "\n");
     fputs(firstLine, nfp);
-    fputs("\n", nfp);
+    // fputs("\n", nfp);
     while (fgets(line, sizeof(line), ifp) != NULL)
     {
         lineno++;
@@ -141,8 +150,9 @@ int wgroff(const char *input_file)
             char *sh;
             sh = strchr(line, ' ') + 1;
             sh = to_uppercase(sh);
+            remove_trailing_newline(sh);
             char sub_head[512];
-            sprintf(sub_head, "\n\033[1m%s\033[0m", sh);
+            sprintf(sub_head, "\n\033[1m%s\033[0m\n", sh);
             fputs(sub_head, nfp);
         }
         else
