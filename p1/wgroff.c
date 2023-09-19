@@ -68,7 +68,7 @@ char *format_line(char *line)
             fl_ptr++;        // Move the pointer for next character
             line++;          // Go to the next character
         }
-        printf("current fl is: %s\n", fl);
+        // printf("current fl is: %s\n", fl);
     }
 
     return fl;
