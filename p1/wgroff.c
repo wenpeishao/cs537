@@ -69,7 +69,7 @@ char *format_line(char *line)
         {
             strcat(fl_ptr, "/");
             line += 2;
-            fl_ptr += 2;
+            fl_ptr += 1;
         }
         else
         {
@@ -77,7 +77,7 @@ char *format_line(char *line)
             fl_ptr++;        // Move the pointer for next character
             line++;          // Go to the next character
         }
-        // printf("current fl is: %s\n", fl);
+        printf("current fl is: %s\n", fl);
     }
 
     return fl;
