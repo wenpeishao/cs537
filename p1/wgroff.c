@@ -98,18 +98,18 @@ int wgroff(const char *input_file)
     int lineno = 1;
     // header 0 is ".TH"| header 1 is command| header 2 is section| header 3 is date TODO check Bad Header
     header[0] = strtok(line, " ");
-    if (strstr(header[0], ".TH") == NULL)
+    if (strstr(header[0], ".TH") == NULL) // improfer formatting
     {
         printf("Improper formatting on line %i\n", lineno);
         exit(0);
     }
-    for (int i = 1; i < 4; i++)
+    for (int i = 1; i < 4; i++) // store the first line to heater
     {
         header[i] = strtok(NULL, " ");
     }
     char path[518];
-    sprintf(path, "%s.%s", header[1], header[2]);
-    int section = atoi(header[2]);
+    sprintf(path, "%s.%s", header[1], header[2]); // save the name of the file at path
+    int section = atoi(header[2]);                // check if the header haave the correct section number
     if (section < 1 || section > 9)
     {
         printf("Improper formatting on line %i\n", lineno);
@@ -119,7 +119,7 @@ int wgroff(const char *input_file)
     char time[50];
     strcpy(time, header[3]);
     time[strlen(time) - 1] = 0;
-    if (strlen(time) != 10) // check time
+    if (strlen(time) != 10) // check time can get better
     {
         printf("Improper formatting on line %i\n", lineno);
         exit(0);
@@ -127,14 +127,12 @@ int wgroff(const char *input_file)
     FILE *nfp = fopen(path, "w+");
     // write the first line
     char firstLine[500];
-    char title[180];
-    sprintf(title, "%s(%s)", header[1], header[2]);
-    strcpy(firstLine, title);
-    while (strlen(firstLine) <= (79 - strlen(title)))
+    strcpy(firstLine, path);
+    while (strlen(firstLine) <= (79 - strlen(path)))
     {
         strcat(firstLine, " ");
     }
-    strcat(firstLine, title);
+    strcat(firstLine, path);
     strcat(firstLine, "\n");
     fputs(firstLine, nfp);
     // fputs("\n", nfp);
