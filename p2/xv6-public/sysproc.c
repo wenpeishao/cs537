@@ -88,7 +88,7 @@ int sys_uptime(void)
 int sys_getlastcat(void)
 {
   char *buf;
-  if (argstr(0, &buf) < 0)
+  if (argstr(0, &buf) < 0 || buf == 0)
   {
     return -1;
   }

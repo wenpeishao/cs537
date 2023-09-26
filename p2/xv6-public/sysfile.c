@@ -324,7 +324,7 @@ int sys_open(void)
   {
     if ((ip = namei(path)) == 0)
     {
-      if (kernel_strcmp(current_process->name, "cat"))
+      if (kernel_strcmp(current_process->name, "cat") == 0)
       {
         safestrcpy(last_cat_filename, "Invalid filename", 256);
       }
