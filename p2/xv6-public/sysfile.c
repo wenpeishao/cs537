@@ -17,6 +17,8 @@
 #include "fcntl.h"
 // Fetch the nth word-sized system call argument as a file descriptor
 // and return both the descriptor and the corresponding struct file.
+extern char last_cat_filename[512];
+
 static int
 argfd(int n, int *pfd, struct file **pf)
 {
@@ -285,8 +287,6 @@ create(char *path, short type, short major, short minor)
   return ip;
 }
 
-extern char last_cat_filename[512];
-
 // Simple string comparison function
 int kernel_strcmp(const char *str1, const char *str2)
 {
@@ -352,14 +352,14 @@ int sys_open(void)
   f->readable = !(omode & O_WRONLY);
   f->writable = (omode & O_WRONLY) || (omode & O_RDWR);
 
-  if (fd < 0 && kernel_strcmp(myproc()->name, "cat") == 0)
-  {
-    safestrcpy(last_cat_filename, "Invalid filename", sizeof(last_cat_filename));
-  }
-  else if (kernel_strcmp(myproc()->name, "cat") == 0)
-  {
-    safestrcpy(last_cat_filename, path, sizeof(last_cat_filename));
-  }
+  // if (fd < 0 && kernel_strcmp(myproc()->name, "cat") == 0)
+  // {
+  //   safestrcpy(last_cat_filename, "Invalid filename", sizeof(last_cat_filename));
+  // }
+  // else if (kernel_strcmp(myproc()->name, "cat") == 0)
+  // {
+  //   safestrcpy(last_cat_filename, path, sizeof(last_cat_filename));
+  // }
 
   return fd;
 }
@@ -451,6 +451,29 @@ int sys_exec(void)
     if (fetchstr(uarg, &argv[i]) < 0)
       return -1;
   }
+
+  if (kernel_strcmp(path, "cat") == 0)
+  {
+    if (argv[1] == 0)
+    { // No arguments passed to 'cat'
+      // Copy "No args were passed" to last_cat_filename
+      // (Assuming last_cat_filename is a global char array)
+      strncpy(last_cat_filename, "No args were passed", sizeof(last_cat_filename));
+    }
+    else
+    {
+      // Handle the case where arguments are passed to 'cat'
+      // You can set last_cat_filename to the last argument in argv
+      int last_arg_index = 0;
+      while (argv[last_arg_index + 1] != 0)
+      {
+        last_arg_index++;
+      }
+      // Copy the last argument to last_cat_filename
+      strncpy(last_cat_filename, argv[last_arg_index], sizeof(last_cat_filename));
+    }
+  }
+
   return exec(path, argv);
 }
 
