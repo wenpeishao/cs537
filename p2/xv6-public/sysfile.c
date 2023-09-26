@@ -3,7 +3,7 @@
 // Mostly argument checking, since we don't trust
 // user code, and calls into file.c and fs.c.
 //
-
+#include "memlayout.h"
 #include "types.h"
 #include "defs.h"
 #include "param.h"
@@ -15,7 +15,6 @@
 #include "sleeplock.h"
 #include "file.h"
 #include "fcntl.h"
-
 // Fetch the nth word-sized system call argument as a file descriptor
 // and return both the descriptor and the corresponding struct file.
 static int
@@ -288,6 +287,17 @@ create(char *path, short type, short major, short minor)
 
 extern char last_cat_filename[512];
 
+// Simple string comparison function
+int kernel_strcmp(const char *str1, const char *str2)
+{
+  while (*str1 && (*str1 == *str2))
+  {
+    str1++;
+    str2++;
+  }
+  return *(unsigned char *)str1 - *(unsigned char *)str2;
+}
+
 int sys_open(void)
 {
   char *path;
@@ -299,16 +309,6 @@ int sys_open(void)
     return -1;
 
   begin_op();
-
-  fd = open(path, omode);
-  if (fd < 0 && strcmp(myproc()->name, "cat") == 0)
-  {
-    safestrcpy(last_cat_filename, "Invalid filename", sizeof(last_cat_filename));
-  }
-  else if (strcmp(myproc()->name, "cat") == 0)
-  {
-    safestrcpy(last_cat_filename, path, sizeof(last_cat_filename));
-  }
 
   if (omode & O_CREATE)
   {
@@ -351,6 +351,16 @@ int sys_open(void)
   f->off = 0;
   f->readable = !(omode & O_WRONLY);
   f->writable = (omode & O_WRONLY) || (omode & O_RDWR);
+
+  if (fd < 0 && kernel_strcmp(myproc()->name, "cat") == 0)
+  {
+    safestrcpy(last_cat_filename, "Invalid filename", sizeof(last_cat_filename));
+  }
+  else if (kernel_strcmp(myproc()->name, "cat") == 0)
+  {
+    safestrcpy(last_cat_filename, path, sizeof(last_cat_filename));
+  }
+
   return fd;
 }
 
