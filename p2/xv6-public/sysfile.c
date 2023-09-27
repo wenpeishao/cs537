@@ -363,7 +363,14 @@ int sys_open(void)
   }
   else if (kernel_strcmp(myproc()->name, "cat") == 0)
   {
-    safestrcpy(last_cat_filename, path, sizeof(last_cat_filename));
+    if (kernel_strcmp(myproc()->name, "") == 0)
+    {
+      safestrcpy(last_cat_filename, "No args were passed\n", sizeof(last_cat_filename));
+    }
+    else
+    {
+      safestrcpy(last_cat_filename, path, sizeof(last_cat_filename));
+    }
   }
 
   return fd;
@@ -456,7 +463,15 @@ int sys_exec(void)
     if (fetchstr(uarg, &argv[i]) < 0)
       return -1;
   }
-
+  if (kernel_strcmp(path, "cat") == 0)
+  {
+    if (argv[1] == 0)
+    { // No arguments passed to 'cat'
+      // Copy "No args were passed" to last_cat_filename
+      // (Assuming last_cat_filename is a global char array)
+      strncpy(last_cat_filename, "No args were passed", sizeof(last_cat_filename));
+    }
+  }
   // if (kernel_strcmp(path, "cat") == 0)
   // {
   //   if (argv[1] == 0)
