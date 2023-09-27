@@ -18,7 +18,7 @@ All features implemented and pass all test.
 5. `getlastcat.c`: Created a new user program to test the syscall.
 6. `Makefile`: Added `getlastcat` to the `UPROGS` list.
 7. `usys.S`: Added the syscall assembly code for getlastcat.
-8. `sysfile.c`: Modify sys_open syscall funcation and add last_cat_filename extern char [] in order to record last time which file cat was call.
+8. `sysfile.c`: Modify sys_open syscall funcation and add last_cat_filename extern char [] in order to record last time which file cat was call. Also Modify sys_exec syscall in order to put "No args were passed" when cat 0 was called.
 9. `user.h`: Added the prototype for `getlastcat` user program.
 
 ## PS
