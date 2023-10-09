@@ -185,133 +185,155 @@ void move_to_foreground(int id)
     // For example: start_signal_handler();
 }
 
+bool is_valid_job(int id)
+{
+    return id >= 0 && id < MAX_JOB_COUNT && jobs[id].in_use;
+}
+
+void resume_job(int id)
+{
+    kill(jobs[id].pid, SIGCONT);
+}
+
 void move_to_background(int id)
 {
-    if (id >= 0 && id < MAX_JOB_COUNT && jobs[id].in_use == true)
+    if (is_valid_job(id))
     {
-        kill(jobs[id].pid, SIGCONT);
-        // jobs[id].is_bg = true;
+        resume_job(id);
     }
 }
-void handle_exit(int s_argc)
+void handle_exit(int argc)
 {
-    if (s_argc == 1)
-    {
-        exit(0);
-    }
-    else
-    {
-        exit(-1);
-    }
+    exit(argc == 1 ? 0 : -1);
 }
 
-void handle_cd(int s_argc, char **s_args)
+void handle_cd(int argc, char **args)
 {
-    if (s_argc != 2)
-    {
+    if (argc != 2)
         perror("cd");
-    }
-    if (chdir(s_args[1]) != 0)
-    {
+    else if (chdir(args[1]) != 0)
         perror("cd");
-    }
 }
 
-void handle_fg(int s_argc, char **s_args)
+void handle_fg(int argc, char **args)
 {
-    int id;
-    if (s_argc == 1)
-    {
-        id = find_most_recently_added_job();
-    }
-    else if (s_argc == 2)
-    {
-        id = atoi(s_args[1]);
-    }
-    else
-    {
+    int id = (argc == 1) ? find_most_recently_added_job() : atoi(args[1]);
+    if (argc > 2)
         exit(-1);
-    }
     move_to_foreground(id);
 }
 
-void handle_bg(int s_argc, char **s_args)
+void handle_bg(int argc, char **args)
 {
-    int id;
-    if (s_argc == 1)
-    {
-        id = MAX_JOB_COUNT - 1;
-    }
-    else if (s_argc == 2)
-    {
-        id = atoi(s_args[1]);
-    }
-    else
-    {
+    int id = (argc == 1) ? MAX_JOB_COUNT - 1 : atoi(args[1]);
+    if (argc > 2)
         exit(-1);
-    }
     move_to_background(id);
 }
 
 void handle_jobs()
 {
     bool has_job = false;
-    for (int i = 0; i < MAX_JOB_COUNT; i++)
+    for (int i = 0; i < MAX_JOB_COUNT; ++i)
     {
-        if (jobs[i].in_use == true)
+        if (jobs[i].in_use)
         {
             has_job = true;
-            printf("%d: %s", i, jobs[i].command);
-            if (jobs[i].is_bg == true)
-            {
-                printf(" &");
-            }
-            printf("\n");
+            printf("%d: %s%s\n", i, jobs[i].command, jobs[i].is_bg ? " &" : "");
         }
     }
 }
-
-void handle_other_commands(int s_argc, char **s_args, char *line)
+void run_command(int argc, char **args, char *line)
 {
-    // Implementation for handling other commands
-    // This is where you put the fork, exec, and other related logic
-}
+    pid_t pid = fork();
 
+    if (pid == 0) // Child Process
+    {
+        if (args[argc - 1][0] == '&')
+        {
+            args[argc - 1] = NULL;
+        }
+
+        struct sigaction sa_default;
+        sa_default.sa_handler = SIG_DFL;
+        sa_default.sa_flags = 0;
+        sigemptyset(&sa_default.sa_mask);
+
+        sigaction(SIGINT, &sa_default, NULL);
+        sigaction(SIGTSTP, &sa_default, NULL);
+        sigaction(SIGCHLD, &sa_default, NULL);
+
+        setpgid(0, 0);
+        tcsetpgrp(STDIN_FILENO, getpid());
+
+        execvp(args[0], args);
+        perror("execvp");
+        exit(-1);
+    }
+    else if (pid > 0) // Parent Process
+    {
+        bool is_background = args[argc - 1][0] == '&';
+        if (is_background)
+        {
+            args[argc - 1] = NULL;
+        }
+
+        add_job(pid, line, is_background);
+
+        if (!is_background)
+        {
+            tcsetpgrp(STDIN_FILENO, pid);
+
+            int status;
+            waitpid(pid, &status, WUNTRACED);
+
+            if (WIFSTOPPED(status))
+            {
+                // Handle if the job was stopped
+            }
+            else
+            {
+                // Remove it from the jobs list if it exited or was terminated
+                for (int i = 0; i < MAX_JOB_COUNT; i++)
+                {
+                    if (jobs[i].in_use && jobs[i].pid == pid)
+                    {
+                        remove_job(i);
+                        break;
+                    }
+                }
+            }
+
+            tcsetpgrp(STDIN_FILENO, shellpid);
+        }
+    }
+    else // Fork Failed
+    {
+        exit(-1);
+    }
+}
 int exec_cmd(int s_argc, char **s_args, char *line)
 {
     if (s_argc == 0)
-    {
         return 0;
-    }
 
-    if (strcmp(s_args[0], "exit") == 0)
-    {
+    const char *cmd = s_args[0];
+
+    if (strcmp(cmd, "exit") == 0)
         handle_exit(s_argc);
-    }
-    else if (strcmp(s_args[0], "cd") == 0)
-    {
+    else if (strcmp(cmd, "cd") == 0)
         handle_cd(s_argc, s_args);
-    }
-    else if (strcmp(s_args[0], "fg") == 0)
-    {
+    else if (strcmp(cmd, "fg") == 0)
         handle_fg(s_argc, s_args);
-    }
-    else if (strcmp(s_args[0], "bg") == 0)
-    {
+    else if (strcmp(cmd, "bg") == 0)
         handle_bg(s_argc, s_args);
-    }
-    else if (strcmp(s_args[0], "jobs") == 0)
-    {
+    else if (strcmp(cmd, "jobs") == 0)
         handle_jobs();
-    }
     else
-    {
-        handle_other_commands(s_argc, s_args, line);
-    }
+        run_command(s_argc, s_args, line);
 
     return 0;
 }
-
 void setup_pipes(int I, int pipe_count, int pipes[2][2])
 {
     if (pipe_count && pipe(pipes[0]) == -1)
