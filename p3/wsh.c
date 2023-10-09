@@ -1,289 +1,599 @@
 #include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
+#include <unistd.h>
 #include <sys/wait.h>
-#include <fcntl.h>
+#include <stdlib.h>
 #include <signal.h>
+#include <stdbool.h>
+#include <sys/types.h>
+#include <termios.h>
 
-#define MAX_INPUT_SIZE 1024
-#define MAX_ARG_SIZE 100
+#define PROMPT "wsh> "
+#define MAX_LENGTH 256
+#define MAX_JOB_COUNT 256
 
-char *directories[] = {"/bin", "/usr/bin", NULL}; // Add more as needed
-
-char *find_executable(const char *command)
+typedef struct job
 {
-    char *full_path = malloc(1024); // Large enough buffer, you should manage this better
+    pid_t pid;          // Process ID
+    char *command;      // Command
+    bool is_bg;         // true if running bg
+    bool in_use;        // true if in use
+    long counter_value; // counter's value when this job is added
+} job_t;
 
-    for (int i = 0; directories[i] != NULL; ++i)
+job_t jobs[MAX_JOB_COUNT];
+long counter = 1;
+pid_t shellpid;
+int find_next_job_id(void)
+{
+    // Loop through all jobs to find the first unused job slot
+    for (int i = 1; i < MAX_JOB_COUNT; i++)
     {
-        snprintf(full_path, 1024, "%s/%s", directories[i], command);
-
-        if (access(full_path, X_OK) == 0)
+        if (!jobs[i].in_use)
         {
-            return full_path; // Found an executable
+            // Mark the job slot as in use and return its ID
+            jobs[i].in_use = true;
+            return i;
         }
     }
-
-    free(full_path); // Free memory if executable is not found
-    return NULL;     // Executable not found in any of the directories
+    // Return -1 if no unused job slot is found
+    return -1;
 }
 
-void sigchld_handler(int signo)
+int find_most_recently_added_job(void)
 {
-    (void)signo;
-    while (waitpid(-1, NULL, WNOHANG) > 0)
-        ;
-}
+    long biggest_value = 0;
+    int most_recent_job_id = -1;
 
-// Data structure to keep track of background jobs
-typedef struct
-{
-    pid_t pid;
-    char *command;
-} Job;
-
-Job jobs[100]; // Assume max 100 jobs
-int nextJobId = 1;
-
-void handle_builtin(char **args, int num_args)
-{
-    if (strcmp(args[0], "exit") == 0)
+    // Loop through all jobs to find the one with the highest counter value
+    for (int i = 1; i < MAX_JOB_COUNT; i++)
     {
-        exit(0);
-    }
-    else if (strcmp(args[0], "cd") == 0)
-    {
-        if (num_args != 2)
+        if (jobs[i].in_use)
         {
-            printf("cd: wrong number of arguments\n");
-        }
-        else
-        {
-            if (chdir(args[1]) != 0)
+            if (jobs[i].counter_value > biggest_value)
             {
-                perror("cd");
+                biggest_value = jobs[i].counter_value;
+                most_recent_job_id = i;
             }
         }
     }
-    else if (strcmp(args[0], "jobs") == 0)
-    {
-        // List jobs
-        for (int i = 0; i < nextJobId; ++i)
-        {
-            if (jobs[i].pid != 0)
-            {
-                printf("%d: %s\n", i, jobs[i].command);
-            }
-        }
-    }
-    else if (strcmp(args[0], "fg") == 0 || strcmp(args[0], "bg") == 0)
-    {
-        int jobId;
-        if (num_args == 2)
-        {
-            jobId = atoi(args[1]);
-        }
-        else if (num_args == 1)
-        {
-            jobId = nextJobId - 1;
-        }
-        else
-        {
-            printf("fg/bg: wrong number of arguments\n");
-            return;
-        }
 
-        if (jobId >= nextJobId || jobs[jobId].pid == 0)
-        {
-            printf("fg/bg: invalid job id\n");
-            return;
-        }
-
-        if (strcmp(args[0], "fg") == 0)
-        {
-            // Bring the job to the foreground
-            tcsetpgrp(STDIN_FILENO, jobs[jobId].pid);
-            kill(jobs[jobId].pid, SIGCONT);
-            int status;
-            waitpid(jobs[jobId].pid, &status, WUNTRACED);
-            tcsetpgrp(STDIN_FILENO, getpgrp());
-        }
-        else
-        {
-            // Run the job in the background
-            kill(jobs[jobId].pid, SIGCONT);
-        }
-    }
+    return most_recent_job_id;
 }
-
-/**
- * @brief Takes a line and splits it into args similar to how argc and argv work in main.
- * @param line The line being split up. Will be mangled after completion of the function.
- * @param args A ptr to char** that will be filled and allocated with the args from the line.
- * @param num_args A ptr to an int for the number of arguments in args.
- * @return returns 0 on success, and -1 on failure
- */
-int lexer(char *line, char ***args, int *num_args)
+int allocate_command(int job_id, const char *command)
 {
-    *num_args = 0;
-    // count number of args
-    char *l = strdup(line);
-    if (l == NULL)
+    jobs[job_id].command = strdup(command);
+    if (jobs[job_id].command == NULL)
     {
         return -1;
     }
-    char *token = strtok(l, " \t\n");
-    while (token != NULL)
-    {
-        (*num_args)++;
-        token = strtok(NULL, " \t\n");
-    }
-    free(l);
-    // split line into args
-    *args = malloc(sizeof(char **) * (*num_args + 1));
-    *num_args = 0;
-    token = strtok(line, " \t\n");
-    while (token != NULL)
-    {
-        char *token_copy = strdup(token);
-        if (token_copy == NULL)
-        {
-            return -1;
-        }
-        (*args)[(*num_args)++] = token_copy;
-        token = strtok(NULL, " \t\n");
-    }
-    (*args)[(*num_args)] = NULL;
     return 0;
 }
 
-void prase_and_excute(char *input)
+void add_job(pid_t pid, char *command, bool is_bg)
 {
-    char args[MAX_ARG_SIZE];
-    char ***token;
-    int *num_args;
-    int i = 0, background = 0;
+    int new_job_id = find_next_job_id();
 
-    lexer(input, token, num_args);
+    // Assign PID and background flag
+    jobs[new_job_id].pid = pid;
+    jobs[new_job_id].is_bg = is_bg;
 
-    // while (token != NULL)
-    // {
-    //     if (strcmp(token, "&") == 0)
-    //     {
-    //         background = 1;
-    //     }
-    // }
+    // Allocate and assign command string
+    if (allocate_command(new_job_id, command) == -1)
+    {
+        exit(-1);
+    }
+
+    // Update counter value for the new job
+    jobs[new_job_id].counter_value = counter++;
 }
 
-int main(int argc, char **argv)
+void remove_job(int id)
 {
-    struct sigaction sa;
-    sa.sa_handler = sigchld_handler;
-    sa.sa_flags = SA_RESTART | SA_NOCLDSTOP;
-    sigaction(SIGCHLD, &sa, NULL);
+    // Validate job ID
+    bool isInvalidID = id < 0;
+    bool isJobNotInUse = !jobs[id].in_use;
 
-    char *line = NULL;
-    size_t len = 0;
-    char **args;
-    int num_args;
-
-    while (1)
+    if (isInvalidID || isJobNotInUse)
     {
-        printf("wsh> ");
-        getline(&line, &len, stdin);
+        return;
+    }
 
-        if (lexer(line, &args, &num_args) == -1)
+    // Free dynamically allocated command and mark job as not in use
+    free(jobs[id].command);
+    jobs[id].in_use = false;
+}
+
+void handle_exit_or_signal(int pid)
+{
+    for (int i = 1; i < MAX_JOB_COUNT; i++)
+    {
+        if (jobs[i].in_use && jobs[i].pid == pid)
         {
-            printf("Error tokenizing input\n");
+            remove_job(i);
+            tcsetpgrp(STDIN_FILENO, shellpid);
+            // Additional logic or print statements can go here
+            break;
+        }
+    }
+}
+
+void handle_stopped(int pid)
+{
+    for (int i = 1; i < MAX_JOB_COUNT; i++)
+    {
+        if (jobs[i].in_use && jobs[i].pid == pid)
+        {
+            // Mark job as 'stopped' (background)
+            // Additional logic or print statements can go here
+            tcsetpgrp(STDIN_FILENO, shellpid);
+            break;
+        }
+    }
+}
+
+void sigchld_handler(int sig)
+{
+    int status;
+    pid_t pid;
+
+    while ((pid = waitpid(-1, &status, WNOHANG | WUNTRACED)) > 0)
+    {
+        if (WIFEXITED(status) || WIFSIGNALED(status))
+        {
+            handle_exit_or_signal(pid);
+        }
+        else if (WIFSTOPPED(status))
+        {
+            handle_stopped(pid);
+        }
+    }
+}
+
+void wait_for_job(int id)
+{
+    int status;
+    waitpid(jobs[id].pid, &status, WUNTRACED);
+    if (WIFSTOPPED(status))
+    {
+        // Handle job stopped logic here
+        // For example: jobs[id].is_bg = false;
+    }
+    else
+    {
+        // Handle job done logic here
+        remove_job(id);
+    }
+}
+
+void move_to_foreground(int id)
+{
+    if (id < 0 || id >= MAX_JOB_COUNT || !jobs[id].in_use)
+    {
+        // Handle invalid job id here
+        // For example: printf("No such job\n");
+        return;
+    }
+
+    tcsetpgrp(STDIN_FILENO, jobs[id].pid);
+    kill(jobs[id].pid, SIGCONT);
+
+    wait_for_job(id);
+
+    tcsetpgrp(STDIN_FILENO, shellpid);
+    // Restore signal handlers or any other post-processing
+    // For example: start_signal_handler();
+}
+
+void move_to_background(int id)
+{
+    if (id >= 0 && id < MAX_JOB_COUNT && jobs[id].in_use == true)
+    {
+        kill(jobs[id].pid, SIGCONT);
+        // jobs[id].is_bg = true;
+    }
+}
+void handle_exit(int s_argc)
+{
+    if (s_argc == 1)
+    {
+        exit(0);
+    }
+    else
+    {
+        exit(-1);
+    }
+}
+
+void handle_cd(int s_argc, char **s_args)
+{
+    if (s_argc != 2)
+    {
+        perror("cd");
+    }
+    if (chdir(s_args[1]) != 0)
+    {
+        perror("cd");
+    }
+}
+
+void handle_fg(int s_argc, char **s_args)
+{
+    int id;
+    if (s_argc == 1)
+    {
+        id = find_most_recently_added_job();
+    }
+    else if (s_argc == 2)
+    {
+        id = atoi(s_args[1]);
+    }
+    else
+    {
+        exit(-1);
+    }
+    move_to_foreground(id);
+}
+
+void handle_bg(int s_argc, char **s_args)
+{
+    int id;
+    if (s_argc == 1)
+    {
+        id = MAX_JOB_COUNT - 1;
+    }
+    else if (s_argc == 2)
+    {
+        id = atoi(s_args[1]);
+    }
+    else
+    {
+        exit(-1);
+    }
+    move_to_background(id);
+}
+
+void handle_jobs()
+{
+    bool has_job = false;
+    for (int i = 0; i < MAX_JOB_COUNT; i++)
+    {
+        if (jobs[i].in_use == true)
+        {
+            has_job = true;
+            printf("%d: %s", i, jobs[i].command);
+            if (jobs[i].is_bg == true)
+            {
+                printf(" &");
+            }
+            printf("\n");
+        }
+    }
+}
+
+void handle_other_commands(int s_argc, char **s_args, char *line)
+{
+    // Implementation for handling other commands
+    // This is where you put the fork, exec, and other related logic
+}
+
+int exec_cmd(int s_argc, char **s_args, char *line)
+{
+    if (s_argc == 0)
+    {
+        return 0;
+    }
+
+    if (strcmp(s_args[0], "exit") == 0)
+    {
+        handle_exit(s_argc);
+    }
+    else if (strcmp(s_args[0], "cd") == 0)
+    {
+        handle_cd(s_argc, s_args);
+    }
+    else if (strcmp(s_args[0], "fg") == 0)
+    {
+        handle_fg(s_argc, s_args);
+    }
+    else if (strcmp(s_args[0], "bg") == 0)
+    {
+        handle_bg(s_argc, s_args);
+    }
+    else if (strcmp(s_args[0], "jobs") == 0)
+    {
+        handle_jobs();
+    }
+    else
+    {
+        handle_other_commands(s_argc, s_args, line);
+    }
+
+    return 0;
+}
+
+void setup_pipes(int I, int pipe_count, int pipes[2][2])
+{
+    if (pipe_count && pipe(pipes[0]) == -1)
+    {
+        perror("pipe");
+    }
+}
+
+void setup_io_redirection(int I, int pipe_count, int pipes[2][2])
+{
+    if ((I == pipe_count) || I != 0)
+    {
+        dup2(pipes[1][0], STDIN_FILENO);
+    }
+    if (I == 0 || !(I == pipe_count))
+    {
+        dup2(pipes[0][1], STDOUT_FILENO);
+    }
+}
+
+void alternate_pipes(int pipes[2][2])
+{
+    int tmp0 = pipes[0][0];
+    int tmp1 = pipes[0][1];
+
+    pipes[0][0] = pipes[1][0];
+    pipes[0][1] = pipes[1][1];
+
+    pipes[1][0] = tmp0;
+    pipes[1][1] = tmp1;
+}
+
+void exec_pipe(int I, int pipe_count, char **command)
+{
+    static int pipes[2][2];
+    setup_pipes(I, pipe_count, pipes);
+
+    pid_t pid = fork();
+    if (pid == 0)
+    {
+        // Child process
+        setup_io_redirection(I, pipe_count, pipes);
+        execvp(command[0], command);
+        perror("execvp");
+        exit(1);
+    }
+    else
+    {
+        // Parent process
+        int status;
+        waitpid(pid, &status, 0);
+
+        // Close pipes
+        if ((I == pipe_count) || I != 0)
+        {
+            close(pipes[1][0]);
+        }
+        if (I == 0 || !(I == pipe_count))
+        {
+            close(pipes[0][1]);
+        }
+
+        alternate_pipes(pipes);
+    }
+}
+
+int count_pipes(int argc_in, char **argv_in)
+{
+    int pipe_count = 0;
+    for (int i = 0; i < argc_in; i++)
+    {
+        if (!strcmp(argv_in[i], "|"))
+        {
+            pipe_count++;
+        }
+    }
+    return pipe_count;
+}
+
+void split_into_commands(int argc_in, char **argv_in, char ***commands)
+{
+    int curr_pipe = 0;
+    int curr_cmd_argc = 0;
+    for (int i = 0; i < argc_in; i++)
+    {
+        if (!strcmp(argv_in[i], "|"))
+        {
+            commands[curr_pipe][curr_cmd_argc] = NULL;
+            curr_pipe++;
+            curr_cmd_argc = 0;
+        }
+        else
+        {
+            commands[curr_pipe][curr_cmd_argc] = argv_in[i];
+            curr_cmd_argc++;
+        }
+    }
+}
+
+int process_pipe(int argc_in, char **argv_in, char *line)
+{
+    if (argc_in == 0)
+    {
+        return 0;
+    }
+    else if (argc_in == 1)
+    {
+        return exec_cmd(argc_in, argv_in, line);
+    }
+
+    int pipe_count = count_pipes(argc_in, argv_in);
+
+    if (pipe_count == 0)
+    {
+        return exec_cmd(argc_in, argv_in, line);
+    }
+
+    char ***commands = (char ***)malloc((pipe_count + 1) * sizeof(char **));
+    for (int i = 0; i < pipe_count + 1; i++)
+    {
+        commands[i] = (char **)calloc(argc_in + 1, sizeof(char *));
+    }
+
+    split_into_commands(argc_in, argv_in, commands);
+
+    for (int i = 0; commands[i] != NULL; i++)
+    {
+        exec_pipe(i, pipe_count, commands[i]);
+    }
+
+    for (int i = 0; i < pipe_count + 1; i++)
+    {
+        free(commands[i]);
+    }
+    free(commands);
+
+    return 0;
+}
+
+int count_args(char *line)
+{
+    int num_args = 0;
+    char *line_copy = strdup(line);
+    char *token = strtok(line_copy, " ");
+
+    if (token)
+    {
+        num_args = 1;
+    }
+
+    while (strtok(NULL, " "))
+    {
+        num_args++;
+    }
+
+    free(line_copy);
+    return num_args;
+}
+
+void split_into_args(char *line, char ***args, int *num_args)
+{
+    char *line_copy = strdup(line);
+    char *token = strtok(line_copy, " ");
+
+    while (token)
+    {
+        char *token_copy = strdup(token);
+        (*args)[(*num_args)++] = token_copy;
+        token = strtok(NULL, " ");
+    }
+
+    (*args)[*num_args] = NULL;
+    free(line_copy);
+}
+
+int cut(char *line, char ***args, int *num_args)
+{
+    *num_args = count_args(line);
+
+    *args = calloc(*num_args + 1, sizeof(char **));
+    if (*args == NULL)
+    {
+        return -1; // Memory allocation failed
+    }
+
+    *num_args = 0;
+    split_into_args(line, args, num_args);
+
+    return 0;
+}
+
+int read_line_from_input(bool print_prompt, FILE *input, char **line, size_t *len)
+{
+    if (print_prompt)
+    {
+        printf(PROMPT);
+    }
+    return getline(line, len, input);
+}
+
+void remove_newline_char(char *line)
+{
+    if (line[strlen(line) - 1] == '\n')
+    {
+        line[strlen(line) - 1] = '\0';
+    }
+}
+/*
+In Intercative mode: print_prompt = true input = stdin
+In Batch mode: print_prompt = flase input = file addr
+*/
+
+int start_wsh(bool print_prompt, FILE *input)
+{
+    size_t len = 0;
+    char *line = NULL;
+
+    while (read_line_from_input(print_prompt, input, &line, &len) != -1)
+    {
+        if (line[0] == '\n' && line[1] == '\0')
+        {
             continue;
         }
 
-        if (num_args > 0)
+        remove_newline_char(line);
+
+        char **s_args = NULL;
+        int s_argc = 0;
+
+        if (cut(line, &s_args, &s_argc) < 0)
         {
-            int num_cmds = 1;
-            for (int i = 0; i < num_args; i++)
-            {
-                if (strcmp(args[i], "|") == 0)
-                    num_cmds++;
-            }
-
-            int pipefds[2 * num_cmds];
-
-            for (int i = 0; i < num_cmds; i++)
-            {
-                if (pipe(pipefds + i * 2) < 0)
-                {
-                    perror("pipe");
-                    exit(1);
-                }
-            }
-
-            int cmd_start = 0;
-            for (int i = 0; i < num_cmds; i++)
-            {
-                pid_t pid = fork();
-                if (pid == 0)
-                {
-                    // First command
-                    if (i != 0)
-                    {
-                        dup2(pipefds[(i - 1) * 2], 0);
-                    }
-                    // Not last command
-                    if (i != num_cmds - 1)
-                    {
-                        dup2(pipefds[i * 2 + 1], 1);
-                    }
-                    for (int j = 0; j < 2 * num_cmds; j++)
-                    {
-                        close(pipefds[j]);
-                    }
-                    char *cmd_args[20];
-                    int arg_idx = 0;
-                    for (int j = cmd_start; j < num_args; j++)
-                    {
-                        if (strcmp(args[j], "|") == 0)
-                        {
-                            cmd_start = j + 1;
-                            break;
-                        }
-                        cmd_args[arg_idx++] = args[j];
-                    }
-                    cmd_args[arg_idx] = NULL;
-                    execvp(cmd_args[0], cmd_args);
-                    perror("execvp");
-                    exit(1);
-                }
-                else if (pid < 0)
-                {
-                    perror("fork");
-                    exit(1);
-                }
-            }
-
-            for (int i = 0; i < 2 * num_cmds; i++)
-            {
-                close(pipefds[i]);
-            }
-            for (int i = 0; i < num_cmds; i++)
-            {
-                wait(NULL);
-            }
+            return -1; // report error
         }
 
-        // Free allocated memory
-        for (int i = 0; i < num_args; ++i)
-        {
-            free(args[i]);
-        }
-        free(args);
+        process_pipe(s_argc, s_args, line);
     }
 
-    if (line)
+    return 0;
+}
+int main(int argc, char *argv[])
+{
+    struct sigaction sa_ignore;
+    // sets the signal handler for sa_ignore to SIG_IGN, which tells the system to ignore the following signals.
+    sa_ignore.sa_handler = SIG_IGN;
+    // sets a flag that causes interrupted system calls to be restarted.
+    sa_ignore.sa_flags = SA_RESTART;
+    // initializes an empty signal set for sa_ignore.sa_mask.
+    sigemptyset(&sa_ignore.sa_mask);
+    // set the action for signals SIGINT, SIGTSTP, SIGTTOU, and SIGTTIN to be ignored.
+    sigaction(SIGINT, &sa_ignore, NULL);
+    sigaction(SIGTSTP, &sa_ignore, NULL);
+    sigaction(SIGTTOU, &sa_ignore, NULL);
+    sigaction(SIGTTIN, &sa_ignore, NULL);
+
+    struct sigaction sa_chld;
+    // sets the signal handler for sa_chld to a function named sigchld_handler.
+    sa_chld.sa_handler = sigchld_handler;
+    // sets flags to restart interrupted system calls and to not receive notification when child processes stop.
+    sa_chld.sa_flags = SA_RESTART | SA_NOCLDSTOP;
+    // initializes an empty signal set for sa_chld.sa_mask.
+    sigemptyset(&sa_chld.sa_mask);
+    // set the action for SIGCHLD signals to be handled by sigchld_handler.
+    sigaction(SIGCHLD, &sa_chld, NULL);
+
+    memset(jobs, 0, sizeof(jobs));
+
+    shellpid = getpid();
+
+    if (argc == 1) // interactive mode
     {
-        free(line);
+        start_wsh(true, stdin);
     }
-
+    if (argc == 2) // file read mode
+    {
+        FILE *input = fopen(argv[1], "r");
+        if (input == NULL)
+        {
+            perror("fopen");
+            exit(-1);
+        }
+        start_wsh(false, input);
+        fclose(input);
+    }
     return 0;
 }
