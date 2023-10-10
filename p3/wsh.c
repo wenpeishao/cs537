@@ -528,6 +528,7 @@ int read_line_from_input(bool print_prompt, FILE *input, char **line, size_t *le
     if (print_prompt)
     {
         printf(PROMPT);
+        fflush(stdout);
     }
     return getline(line, len, input);
 }
