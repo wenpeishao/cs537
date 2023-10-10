@@ -233,12 +233,10 @@ void handle_bg(int argc, char **args)
 
 void handle_jobs()
 {
-    bool has_job = false;
     for (int i = 0; i < MAX_JOB_COUNT; ++i)
     {
         if (jobs[i].in_use)
         {
-            has_job = true;
             printf("%d: %s%s\n", i, jobs[i].command, jobs[i].is_bg ? " &" : "");
         }
     }
