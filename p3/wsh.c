@@ -328,8 +328,107 @@ int exec_cmd(int s_argc, char **s_args, char *line)
     else if (strcmp(cmd, "jobs") == 0)
         handle_jobs();
     else
-        run_command(s_argc, s_args, line);
+    {
+        pid_t pid = fork();
 
+        if (s_args[s_argc - 1][0] == '&')
+        {
+            s_args[s_argc - 1] = NULL;
+            // run in background
+            if (pid == 0)
+            {
+                // child process
+                execvp(s_args[0], s_args);
+                perror("execvp");
+                exit(-1);
+            }
+            else if (pid > 0)
+            {
+                // parent process
+                add_job(pid, line, true);
+            }
+            else
+            {
+                exit(-1);
+            }
+        }
+        else
+        {
+            // run in foreground
+            if (pid == 0)
+            {
+                // setpgid(0, 0); // Set the child's process group to its PID
+                // set signal handler to default
+                // so child does not inherit signal handler from parent
+                // signal(SIGINT, SIG_DFL);
+
+                // signal(SIGTSTP, SIG_DFL);
+                // signal(SIGCHLD, SIG_DFL);
+                struct sigaction sa_default;
+                sa_default.sa_handler = SIG_DFL;  // Set to default behavior
+                sa_default.sa_flags = 0;          // No flags
+                sigemptyset(&sa_default.sa_mask); // Clear any blocked signals
+
+                sigaction(SIGINT, &sa_default, NULL);
+                sigaction(SIGTSTP, &sa_default, NULL);
+                sigaction(SIGCHLD, &sa_default, NULL); // changed
+
+                // try
+                // setpgrp();
+                // if (is_background != 0)
+                // {
+                //     tcsetpgrp(STDIN_FILENO, getpid());
+                // }
+                setpgid(0, 0);                     // Set the child's process group to its PID
+                tcsetpgrp(STDIN_FILENO, getpid()); // changed
+                // child process
+                execvp(s_args[0], s_args);
+                perror("execvp");
+                exit(-1);
+            }
+            else if (pid > 0)
+            {
+                // parent process
+                add_job(pid, line, false); // add it as a job and remove it eventually
+                tcsetpgrp(STDIN_FILENO, pid);
+
+                int status;
+                waitpid(pid, &status, WUNTRACED);
+                // After waitpid(), if the job was stopped, mark it as background
+                if (WIFSTOPPED(status))
+                {
+                    // printf("in fork stop1\n");
+                    for (int i = 0; i < MAX_JOB_COUNT; i++)
+                    {
+                        if (jobs[i].in_use && jobs[i].pid == pid)
+                        {
+                            // jobs[i].is_bg = true;
+                            // printf("in fork stop2\n");
+                            break;
+                        }
+                    }
+                }
+                else
+                {
+                    // printf("in fork stop3\n");
+                    // if it exited or was terminated, remove it from the jobs list
+                    for (int i = 0; i < MAX_JOB_COUNT; i++)
+                    {
+                        if (jobs[i].in_use && jobs[i].pid == pid)
+                        {
+                            remove_job(i);
+                            break;
+                        }
+                    }
+                }
+                tcsetpgrp(STDIN_FILENO, shellpid);
+            }
+            else
+            {
+                exit(-1);
+            }
+        }
+    }
     return 0;
 }
 void setup_pipes(int I, int pipe_count, int pipes[2][2])
