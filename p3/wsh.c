@@ -232,56 +232,6 @@ void handle_jobs()
         }
     }
 }
-// Handle child process running in the foreground
-void handle_child_foreground(char **s_args)
-{
-    struct sigaction sa_default;
-    sa_default.sa_handler = SIG_DFL;  // Default behavior
-    sa_default.sa_flags = 0;          // No flags
-    sigemptyset(&sa_default.sa_mask); // Clear blocked signals
-
-    // Reset signal handling to default for child process
-    sigaction(SIGINT, &sa_default, NULL);
-    sigaction(SIGTSTP, &sa_default, NULL);
-    sigaction(SIGCHLD, &sa_default, NULL);
-
-    setpgid(0, 0);                     // Set child's process group to its PID
-    tcsetpgrp(STDIN_FILENO, getpid()); // Set terminal's foreground process group to child's PID
-
-    execvp(s_args[0], s_args);
-    perror("execvp");
-    exit(-1);
-}
-
-// Handle parent process running in the foreground
-void handle_parent_foreground(pid_t pid, char *line, int shellpid)
-{
-    add_job(pid, line, false);
-    tcsetpgrp(STDIN_FILENO, pid);
-
-    int status;
-    waitpid(pid, &status, WUNTRACED);
-
-    // Check if job was stopped
-    if (WIFSTOPPED(status))
-    {
-        // Modify job properties if needed
-        // ...
-    }
-    else
-    {
-        // Remove the job if it exited or was terminated
-        for (int i = 0; i < MAX_JOB_COUNT; i++)
-        {
-            if (jobs[i].in_use && jobs[i].pid == pid)
-            {
-                remove_job(i);
-                break;
-            }
-        }
-    }
-    tcsetpgrp(STDIN_FILENO, shellpid); // Reset terminal's foreground process group to shell's PID
-}
 int exec_cmd(int s_argc, char **s_args, char *line)
 {
     if (s_argc == 0)
@@ -302,20 +252,91 @@ int exec_cmd(int s_argc, char **s_args, char *line)
     else
     {
         pid_t pid = fork();
-        int shellpid = getpid();
 
-        if (pid == 0)
+        if (s_args[s_argc - 1][0] == '&')
         {
-            handle_child_foreground(s_args);
-        }
-        else if (pid > 0)
-        {
-            handle_parent_foreground(pid, line, shellpid);
+            // Background process
+            s_args[s_argc - 1] = NULL;
+            if (pid == 0)
+            {
+                // Child process
+                execvp(s_args[0], s_args);
+                perror("execvp");
+                exit(EXIT_FAILURE);
+            }
+            else if (pid > 0)
+            {
+                // Parent process
+                add_job(pid, line, true);
+            }
+            else
+            {
+                exit(EXIT_FAILURE);
+            }
         }
         else
         {
-            perror("fork");
-            exit(-1);
+            // Foreground process
+            if (pid == 0)
+            {
+                // Configure signal to default behavior
+                struct sigaction sa_default;
+                sa_default.sa_handler = SIG_DFL;
+                sa_default.sa_flags = 0;
+                sigemptyset(&sa_default.sa_mask);
+
+                sigaction(SIGINT, &sa_default, NULL);
+                sigaction(SIGTSTP, &sa_default, NULL);
+                sigaction(SIGCHLD, &sa_default, NULL);
+
+                // Set process group and terminal control
+                setpgid(0, 0);
+                tcsetpgrp(STDIN_FILENO, getpid());
+
+                // Execute command
+                execvp(s_args[0], s_args);
+                perror("execvp");
+                exit(EXIT_FAILURE);
+            }
+            else if (pid > 0)
+            {
+                // Parent process
+                add_job(pid, line, false);
+                tcsetpgrp(STDIN_FILENO, pid);
+
+                int status;
+                waitpid(pid, &status, WUNTRACED);
+
+                if (WIFSTOPPED(status))
+                {
+                    for (int i = 0; i < MAX_JOB_COUNT; i++)
+                    {
+                        if (jobs[i].in_use && jobs[i].pid == pid)
+                        {
+
+                            break;
+                        }
+                    }
+                }
+                else
+                {
+                    // Remove terminated jobs
+                    for (int i = 0; i < MAX_JOB_COUNT; i++)
+                    {
+                        if (jobs[i].in_use && jobs[i].pid == pid)
+                        {
+                            remove_job(i);
+                            break;
+                        }
+                    }
+                }
+
+                tcsetpgrp(STDIN_FILENO, shellpid);
+            }
+            else
+            {
+                exit(EXIT_FAILURE);
+            }
         }
     }
     return 0;
