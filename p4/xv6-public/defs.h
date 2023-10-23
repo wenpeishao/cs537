@@ -9,7 +9,7 @@ struct spinlock;
 struct sleeplock;
 struct stat;
 struct superblock;
-
+struct pschedinfo; 
 // bio.c
 void            binit(void);
 struct buf*     bread(uint, uint);
@@ -120,6 +120,8 @@ void            userinit(void);
 int             wait(void);
 void            wakeup(void*);
 void            yield(void);
+int             nice(int);
+int             getschedstate(struct pschedinfo *);
 
 // swtch.S
 void            swtch(struct context**, struct context*);

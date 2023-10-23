@@ -49,7 +49,11 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
-};
+  int cpu_ticks;               // Number of tickes used by proc
+  int priority;                // Priority Level
+  uint wakeuptime;             // The number of ticks left for the process to sleep.
+  int nice_value;              // Nice Value
+  };           
 
 // Process memory is laid out contiguously, low addresses first:
 //   text
