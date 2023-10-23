@@ -7,7 +7,6 @@
 #include "proc.h"
 #include "spinlock.h"
 #include "psched.h"
-
 struct
 {
   struct spinlock lock;
@@ -91,8 +90,6 @@ allocproc(void)
 found:
   p->state = EMBRYO;
   p->pid = nextpid++;
-  // Initialize nice_value to zero
-  p->nice_value = 0;
   release(&ptable.lock);
 
   // Allocate kernel stack.
@@ -116,7 +113,10 @@ found:
   p->context = (struct context *)sp;
   memset(p->context, 0, sizeof *p->context);
   p->context->eip = (uint)forkret;
-
+  // initialize new proc
+  p->nice_value = 0;
+  p->cpu_ticks = 0;
+  p->priority = 0;
   return p;
 }
 
@@ -323,16 +323,25 @@ int wait(void)
     sleep(curproc, &ptable.lock); // DOC: wait-sleep
   }
 }
-// Call this function wherever update priorities, such as in the scheduler or in a timer interrupt handler.
-void decay(struct proc *p)
+int decay(int cpu)
 {
-  p->cpu_ticks /= 2;
+  return cpu / 2;
 }
 
-void update_priority(struct proc *p)
+void update_priority(void)
 {
-  decay(p);
-  p->priority = p->cpu_ticks / 2 + p->nice_value;
+  acquire(&ptable.lock);
+
+  for (struct proc *p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+  {
+    if (p->state != UNUSED)
+    {
+      p->cpu_ticks = decay(p->cpu_ticks);
+      p->priority = p->cpu_ticks / 2 + p->nice_value;
+    }
+  }
+
+  release(&ptable.lock);
 }
 
 // PAGEBREAK: 42
@@ -346,41 +355,45 @@ void update_priority(struct proc *p)
 void scheduler(void)
 {
   struct proc *p;
-  struct proc *highp; // Process with the highest priority
   struct cpu *c = mycpu();
+
   c->proc = 0;
 
   for (;;)
   {
-    // Enable interrupts on this processor.
     sti();
-
-    // Loop over process table looking for process to run.
     acquire(&ptable.lock);
-    highp = 0;
+    struct proc *highp = 0;
+    int max = 2147483647;
+
     for (p = ptable.proc; p < &ptable.proc[NPROC]; p++)
     {
       if (p->state != RUNNABLE)
+      {
         continue;
-      if (ticks < p->wakeuptime) // Check if it's time to wake up
-        continue;
-      if (highp == 0 || p->priority < highp->priority)
+      }
+      if (p->priority < max)
+      {
+        max = p->priority;
         highp = p;
+      }
     }
-    if (highp)
+    p = highp;
+    if (p != 0)
     {
-      // Switch to chosen process. Note that it's 'highp', not 'p'.
-      c->proc = highp;
-      switchuvm(highp);
-      highp->state = RUNNING;
-
-      swtch(&(c->scheduler), highp->context);
+      c->proc = p;
+      // cprintf("PID: %d, cputicks: %d\n", p->pid, p->cpu_ticks); // Debugging output
+      switchuvm(p);
+      p->state = RUNNING;
+      p->cpu_ticks++;
+      swtch(&(c->scheduler), p->context);
       switchkvm();
 
       // Process is done running for now.
       // It should have changed its p->state before coming back.
       c->proc = 0;
     }
+
     release(&ptable.lock);
   }
 }
@@ -466,6 +479,7 @@ void sleep(void *chan, struct spinlock *lk)
   // Go to sleep.
   p->chan = chan;
   p->state = SLEEPING;
+
   sched();
 
   // Tidy up.
@@ -561,43 +575,47 @@ void procdump(void)
   }
 }
 
-int getschedstate(struct pschedinfo *psi)
+int getschedstate(struct pschedinfo *result)
 {
-
-  // Lock the process table
-  acquire(&ptable.lock);
+  // // Because we need to return an integer
+  // if (result == NULL)
+  //   return -1;
 
   struct proc *p;
   int i = 0;
-
-  // Iterate over all processes to fill the struct
-  for (p = ptable.proc; p < &ptable.proc[NPROC]; p++, i++)
+  acquire(&ptable.lock);
+  for (p = ptable.proc; p < &ptable.proc[NPROC]; p++)
   {
-    psi->inuse[i] = (p->state == UNUSED) ? 0 : 1;
-    psi->priority[i] = p->priority;
-    psi->nice[i] = p->nice_value; // Assuming nice_value is the field name in proc struct
-    psi->pid[i] = p->pid;
-    psi->ticks[i] = p->cpu_ticks; // Assuming cpu_ticks is the field name in proc struct
+    // inuse
+    if (p->state == UNUSED)
+    {
+      result->inuse[i] = 0;
+    }
+    else
+    {
+      result->inuse[i] = 1;
+    }
+    // priority
+    result->priority[i] = p->priority;
+    // nice
+    result->nice[i] = p->nice_value;
+    // pid
+    result->pid[i] = p->pid;
+    // ticks
+    result->ticks[i] = p->cpu_ticks;
+    i++;
   }
-
-  // Unlock the process table
   release(&ptable.lock);
-
   return 0;
 }
-int nice(int n)
+void wakeup2(void)
 {
-  if (n < 0 || n > 20)
-    return -1;
-
-  acquire(&ptable.lock);
-
-  struct proc *curproc = myproc();
-
-  int prev_nice = curproc->nice_value;
-  curproc->nice_value = n;
-
-  release(&ptable.lock);
-
-  return prev_nice;
+  struct proc *p;
+  for (p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+  {
+    if (p->state == SLEEPING && ticks >= p->wakeuptime)
+    {
+      p->state = RUNNABLE;
+    }
+  }
 }

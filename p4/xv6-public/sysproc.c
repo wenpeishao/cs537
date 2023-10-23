@@ -7,7 +7,7 @@
 #include "mmu.h"
 #include "proc.h"
 #include "psched.h"
-#include "spinlock.h"
+
 int sys_fork(void)
 {
   return fork();
@@ -54,27 +54,29 @@ int sys_sbrk(void)
 int sys_sleep(void)
 {
   int n;
-  struct proc *p = myproc();
+  uint ticks0;
 
   if (argint(0, &n) < 0)
     return -1;
 
   acquire(&tickslock);
-  p->wakeuptime = ticks + n; // Set the wake-up time
-  release(&tickslock);
+  ticks0 = ticks;
 
-  acquire(&tickslock);
-  while (ticks < p->wakeuptime)
+  // Set the wakeup time for the process.
+  myproc()->wakeuptime = ticks0 + n;
+
+  // Sleep until the wakeup time is reached.
+  while (ticks < myproc()->wakeuptime)
   {
-    if (p->killed)
+    if (myproc()->killed)
     {
       release(&tickslock);
       return -1;
     }
     sleep(&ticks, &tickslock);
   }
-  release(&tickslock);
 
+  release(&tickslock);
   return 0;
 }
 
@@ -89,9 +91,7 @@ int sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
-// In this function, argint() is used to fetch the integer argument n.
-// Then, the function checks if n is within the valid range (0 to 20).
-// If it is, it updates the nice_value of the current process.
+
 int sys_nice(void)
 {
   int n;
@@ -101,10 +101,14 @@ int sys_nice(void)
   if (n < 0 || n > 20)
     return -1;
 
+  acquire(&tickslock);
+
   struct proc *curproc = myproc();
   int prev_nice_value = curproc->nice_value;
 
   curproc->nice_value = n;
+
+  release(&tickslock); // Unlock process table
 
   return prev_nice_value;
 }
@@ -114,6 +118,7 @@ int sys_getschedstate(void)
   struct pschedinfo *psi;
   if (argptr(0, (char **)&psi, sizeof(struct pschedinfo)) < 0)
     return -1;
-
+  if (psi == 0) // Check for NULL pointer
+    return -1;
   return getschedstate(psi);
 }
