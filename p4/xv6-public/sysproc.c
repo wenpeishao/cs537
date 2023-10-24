@@ -54,29 +54,39 @@ int sys_sbrk(void)
 int sys_sleep(void)
 {
   int n;
-  uint ticks0;
+  uint initial_ticks;
 
+  // Retrieve the argument and check its validity.
   if (argint(0, &n) < 0)
     return -1;
 
+  // Acquire the ticks lock.
   acquire(&tickslock);
-  ticks0 = ticks;
 
-  // Set the wakeup time for the process.
-  myproc()->wakeuptime = ticks0 + n;
+  // Record the current tick count.
+  initial_ticks = ticks;
 
-  // Sleep until the wakeup time is reached.
-  while (ticks < myproc()->wakeuptime)
+  // Calculate and set the wakeup time for the process.
+  struct proc *current_process = myproc();
+  current_process->wakeuptime = initial_ticks + n;
+
+  // Sleep until the specified wakeup time is reached.
+  while (ticks < current_process->wakeuptime)
   {
-    if (myproc()->killed)
+    // If the process is killed, release the lock and exit.
+    if (current_process->killed)
     {
       release(&tickslock);
       return -1;
     }
+
+    // Put the process to sleep and wait for a wakeup signal.
     sleep(&ticks, &tickslock);
   }
 
+  // Release the ticks lock.
   release(&tickslock);
+
   return 0;
 }
 

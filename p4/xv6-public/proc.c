@@ -330,17 +330,24 @@ int decay(int cpu)
 
 void update_priority(void)
 {
+  // Acquire the process table lock.
   acquire(&ptable.lock);
 
+  // Iterate through each process in the process table.
   for (struct proc *p = ptable.proc; p < &ptable.proc[NPROC]; p++)
   {
+    // Only update priority for processes that are in use.
     if (p->state != UNUSED)
     {
+      // Apply decay function to cpu_ticks.
       p->cpu_ticks = decay(p->cpu_ticks);
+
+      // Calculate and assign the new priority.
       p->priority = p->cpu_ticks / 2 + p->nice_value;
     }
   }
 
+  // Release the process table lock.
   release(&ptable.lock);
 }
 
@@ -619,40 +626,28 @@ void procdump(void)
 
 int getschedstate(struct pschedinfo *result)
 {
-  // // Because we need to return an integer
-  // if (result == NULL)
-  //   return -1;
-
   struct proc *p;
   int i = 0;
+
   acquire(&ptable.lock);
-  for (p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+
+  for (p = ptable.proc; p < &ptable.proc[NPROC]; p++, i++)
   {
-    // inuse
-    if (p->state == UNUSED)
-    {
-      result->inuse[i] = 0;
-    }
-    else
-    {
-      result->inuse[i] = 1;
-    }
-    // priority
+    result->inuse[i] = (p->state != UNUSED);
     result->priority[i] = p->priority;
-    // nice
     result->nice[i] = p->nice_value;
-    // pid
     result->pid[i] = p->pid;
-    // ticks
     result->ticks[i] = p->cpu_ticks;
-    i++;
   }
+
   release(&ptable.lock);
   return 0;
 }
+
 void wakeup2(void)
 {
   struct proc *p;
+
   for (p = ptable.proc; p < &ptable.proc[NPROC]; p++)
   {
     if (p->state == SLEEPING && ticks >= p->wakeuptime)
