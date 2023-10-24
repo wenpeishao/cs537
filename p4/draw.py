@@ -5,7 +5,7 @@ from collections import defaultdict
 data = defaultdict(list)
 
 # Read data from the text file
-with open('stat1.txt', 'r') as file:
+with open('stat2.txt', 'r') as file:
     lines = file.readlines()
     for line in lines:
         parts = line.strip().split(', ')
@@ -28,7 +28,7 @@ plt.title('Exec Ticks vs Current Tickets')
 plt.legend()
 
 # Save the plot as a PNG file
-plt.savefig('plot.png')
+plt.savefig('plot2.png')
 
 # Show the plot (optional)
 plt.show()
