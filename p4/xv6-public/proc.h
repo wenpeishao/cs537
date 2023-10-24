@@ -67,6 +67,7 @@ struct proc
   int priority;               // Priority Level
   uint wakeuptime;            // The number of ticks left for the process to sleep.
   int nice_value;             // Nice Value
+  int exec_ticks;
 };
 
 // Process memory is laid out contiguously, low addresses first:

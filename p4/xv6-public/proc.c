@@ -12,9 +12,8 @@ struct
   struct spinlock lock;
   struct proc proc[NPROC];
 } ptable;
-
+int counter = 0;
 static struct proc *initproc;
-
 int nextpid = 1;
 extern void forkret(void);
 extern void trapret(void);
@@ -117,6 +116,7 @@ found:
   p->nice_value = 0;
   p->cpu_ticks = 0;
   p->priority = 0;
+  p->exec_ticks = 0;
   return p;
 }
 
@@ -381,11 +381,15 @@ void scheduler(void)
     p = highp;
     if (p != 0)
     {
+      counter++;
       c->proc = p;
-      // cprintf("PID: %d, cputicks: %d\n", p->pid, p->cpu_ticks); // Debugging output
+      cprintf("PID: %d, exec_ticks: %d, current tickets: %d\n", myproc()->pid, myproc()->exec_ticks, counter); // Debugging output
+
       switchuvm(p);
       p->state = RUNNING;
       p->cpu_ticks++;
+      p->exec_ticks++;
+
       swtch(&(c->scheduler), p->context);
       switchkvm();
 
