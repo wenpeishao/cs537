@@ -59,15 +59,15 @@ objdump -t kernel | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$/d' > kernel.sym
 dd if=/dev/zero of=xv6.img count=10000
 10000+0 records in
 10000+0 records out
-5120000 bytes (5.1 MB, 4.9 MiB) copied, 0.0107836 s, 475 MB/s
+5120000 bytes (5.1 MB, 4.9 MiB) copied, 0.00975532 s, 525 MB/s
 dd if=bootblock of=xv6.img conv=notrunc
 1+0 records in
 1+0 records out
-512 bytes copied, 4.6107e-05 s, 11.1 MB/s
+512 bytes copied, 4.1438e-05 s, 12.4 MB/s
 dd if=kernel of=xv6.img seek=1 conv=notrunc
 292+1 records in
 292+1 records out
-149808 bytes (150 kB, 146 KiB) copied, 0.000222199 s, 674 MB/s
+149844 bytes (150 kB, 146 KiB) copied, 0.000211891 s, 707 MB/s
 gcc -Werror -Wall -o mkfs mkfs.c
 gcc -fno-pic -static -fno-builtin -fno-strict-aliasing -O0 -Wall -MD -ggdb -m32 -Werror -fno-omit-frame-pointer -fno-stack-protector -fno-pie -no-pie   -c -o ulib.o ulib.c
 gcc -m32 -gdwarf-2 -Wa,-divide   -c -o usys.o usys.S
@@ -154,8 +154,8 @@ Tests to make sure everything compiles
 Running xv6 user progam /home/cs537-1/tests/P4/ctests/test_1.c
 Trying to build project using make
 make xv6.img fs.img
-/tmp/tmp0o006q7x/p/Makefile
-/tmp/tmp0o006q7x/p/Makefile.test
+/tmp/tmpz69ulmgb/p/Makefile
+/tmp/tmpz69ulmgb/p/Makefile.test
 make: 'xv6.img' is up to date.
 make: 'fs.img' is up to date.
 make qemu-nox CPUS=1
@@ -183,6 +183,7 @@ $ tester
 tester
 XV6_SCHEDULER	 SUCCESS
 
+
 test test_1 PASSED (1 of 1)
  (Tests to make sure everything compiles)
 
@@ -197,8 +198,8 @@ Make sure default priority and nice are 0
 Running xv6 user progam /home/cs537-1/tests/P4/ctests/test_2.c
 Trying to build project using make
 make xv6.img fs.img
-/tmp/tmp0o006q7x/p/Makefile
-/tmp/tmp0o006q7x/p/Makefile.test
+/tmp/tmpz69ulmgb/p/Makefile
+/tmp/tmpz69ulmgb/p/Makefile.test
 make: 'xv6.img' is up to date.
 make: 'fs.img' is up to date.
 make qemu-nox CPUS=1
@@ -241,8 +242,8 @@ Test that nice works with valid arguments
 Running xv6 user progam /home/cs537-1/tests/P4/ctests/test_3.c
 Trying to build project using make
 make xv6.img fs.img
-/tmp/tmp0o006q7x/p/Makefile
-/tmp/tmp0o006q7x/p/Makefile.test
+/tmp/tmpz69ulmgb/p/Makefile
+/tmp/tmpz69ulmgb/p/Makefile.test
 make: 'xv6.img' is up to date.
 make: 'fs.img' is up to date.
 make qemu-nox CPUS=1
@@ -269,6 +270,7 @@ init: starting sh
 $ tester
 tester
 XV6_SCHEDULER	 SUCCESS
+
 
 test test_3 PASSED (1 of 1)
  (Test that nice works with valid arguments)
@@ -284,8 +286,8 @@ Test that nice fails for out of bounds arguments
 Running xv6 user progam /home/cs537-1/tests/P4/ctests/test_4.c
 Trying to build project using make
 make xv6.img fs.img
-/tmp/tmp0o006q7x/p/Makefile
-/tmp/tmp0o006q7x/p/Makefile.test
+/tmp/tmpz69ulmgb/p/Makefile
+/tmp/tmpz69ulmgb/p/Makefile.test
 make: 'xv6.img' is up to date.
 make: 'fs.img' is up to date.
 make qemu-nox CPUS=1
@@ -313,6 +315,7 @@ $ tester
 tester
 XV6_SCHEDULER	 SUCCESS
 
+
 test test_4 PASSED (1 of 1)
  (Test that nice fails for out of bounds arguments)
 
@@ -327,8 +330,8 @@ Test that getschedstate fails for null pointer
 Running xv6 user progam /home/cs537-1/tests/P4/ctests/test_5.c
 Trying to build project using make
 make xv6.img fs.img
-/tmp/tmp0o006q7x/p/Makefile
-/tmp/tmp0o006q7x/p/Makefile.test
+/tmp/tmpz69ulmgb/p/Makefile
+/tmp/tmpz69ulmgb/p/Makefile.test
 make: 'xv6.img' is up to date.
 make: 'fs.img' is up to date.
 make qemu-nox CPUS=1
@@ -356,7 +359,6 @@ $ tester
 tester
 XV6_SCHEDULER	 SUCCESS
 
-
 test test_5 PASSED (1 of 1)
  (Test that getschedstate fails for null pointer)
 
@@ -371,8 +373,8 @@ Spinning process is assigned lower priority
 Running xv6 user progam /home/cs537-1/tests/P4/ctests/test_6.c
 Trying to build project using make
 make xv6.img fs.img
-/tmp/tmp0o006q7x/p/Makefile
-/tmp/tmp0o006q7x/p/Makefile.test
+/tmp/tmpz69ulmgb/p/Makefile
+/tmp/tmpz69ulmgb/p/Makefile.test
 make: 'xv6.img' is up to date.
 make: 'fs.img' is up to date.
 make qemu-nox CPUS=1
@@ -398,7 +400,8 @@ sb: size 1000 nblocks 941 ninodes 200 nlog 30 logstart 2 inodestart 32 bmap star
 init: starting sh
 $ tester
 tester
-priority of 3 is 8XV6_SCHEDULER	 SUCCESS
+priority of 3 is 7XV6_SCHEDULER	 SUCCESS
+
 
 test test_6 PASSED (1 of 1)
  (Spinning process is assigned lower priority)
@@ -414,8 +417,8 @@ Two processes at same priority level should run in round-robin
 Running xv6 user progam /home/cs537-1/tests/P4/ctests/test_7.c
 Trying to build project using make
 make xv6.img fs.img
-/tmp/tmp0o006q7x/p/Makefile
-/tmp/tmp0o006q7x/p/Makefile.test
+/tmp/tmpz69ulmgb/p/Makefile
+/tmp/tmpz69ulmgb/p/Makefile.test
 make: 'xv6.img' is up to date.
 make: 'fs.img' is up to date.
 make qemu-nox CPUS=1
@@ -441,7 +444,7 @@ sb: size 1000 nblocks 941 ninodes 200 nlog 30 logstart 2 inodestart 32 bmap star
 init: starting sh
 $ tester
 tester
-p1 ticks: 6	 p2 ticks: 6
+p1 ticks: 5	 p2 ticks: 5
 XV6_SCHEDULER	 SUCCESS
 
 
@@ -459,8 +462,8 @@ Process with higher priority after sleeping should be scheduled
 Running xv6 user progam /home/cs537-1/tests/P4/ctests/test_8.c
 Trying to build project using make
 make xv6.img fs.img
-/tmp/tmp0o006q7x/p/Makefile
-/tmp/tmp0o006q7x/p/Makefile.test
+/tmp/tmpz69ulmgb/p/Makefile
+/tmp/tmpz69ulmgb/p/Makefile.test
 make: 'xv6.img' is up to date.
 make: 'fs.img' is up to date.
 make qemu-nox CPUS=1
@@ -487,7 +490,7 @@ init: starting sh
 $ tester
 tester
 p1 ticks: 57	 p2 ticks: 5
-p1 ticks: 57	 p2 ticks: 29	timediff: 24
+p1 ticks: 57	 p2 ticks: 27	timediff: 22
 XV6_SCHEDULER	 SUCCESS
 
 
@@ -505,8 +508,8 @@ Process should have higher priority after sleeping
 Running xv6 user progam /home/cs537-1/tests/P4/ctests/test_9.c
 Trying to build project using make
 make xv6.img fs.img
-/tmp/tmp0o006q7x/p/Makefile
-/tmp/tmp0o006q7x/p/Makefile.test
+/tmp/tmpz69ulmgb/p/Makefile
+/tmp/tmpz69ulmgb/p/Makefile.test
 make: 'xv6.img' is up to date.
 make: 'fs.img' is up to date.
 make qemu-nox CPUS=1
@@ -535,7 +538,6 @@ tester
 p1 priority: 35	 p2 priority: 1
 XV6_SCHEDULER	 SUCCESS
 
-
 test test_9 PASSED (1 of 1)
  (Process should have higher priority after sleeping)
 
@@ -550,8 +552,8 @@ Runnable process should be scheduled, even if it does not have highest priority
 Running xv6 user progam /home/cs537-1/tests/P4/ctests/test_10.c
 Trying to build project using make
 make xv6.img fs.img
-/tmp/tmp0o006q7x/p/Makefile
-/tmp/tmp0o006q7x/p/Makefile.test
+/tmp/tmpz69ulmgb/p/Makefile
+/tmp/tmpz69ulmgb/p/Makefile.test
 make: 'xv6.img' is up to date.
 make: 'fs.img' is up to date.
 make qemu-nox CPUS=1
@@ -577,8 +579,9 @@ sb: size 1000 nblocks 941 ninodes 200 nlog 30 logstart 2 inodestart 32 bmap star
 init: starting sh
 $ tester
 tester
-p1 ticks: 6	 p2 ticks: 0
+p1 ticks: 5	 p2 ticks: 0
 XV6_SCHEDULER	 SUCCESS
+
 
 test test_10 PASSED (1 of 1)
  (Runnable process should be scheduled, even if it does not have highest priority)
@@ -594,8 +597,8 @@ Correct number of processes in use
 Running xv6 user progam /home/cs537-1/tests/P4/ctests/test_11.c
 Trying to build project using make
 make xv6.img fs.img
-/tmp/tmp0o006q7x/p/Makefile
-/tmp/tmp0o006q7x/p/Makefile.test
+/tmp/tmpz69ulmgb/p/Makefile
+/tmp/tmpz69ulmgb/p/Makefile.test
 make: 'xv6.img' is up to date.
 make: 'fs.img' is up to date.
 make qemu-nox CPUS=1
@@ -624,16 +627,17 @@ tester
 Spinning...
 
 **** PInfo ****
-pid: 1 ticks: 19 priority: 1
-pid: 2 ticks: 19 priority: 1
+pid: 1 ticks: 18 priority: 1
+pid: 2 ticks: 18 priority: 1
 pid: 3 ticks: 1 priority: 0
-pid: 4 ticks: 18 priority: 1
+pid: 4 ticks: 17 priority: 1
 pid: 5 ticks: 6 priority: 3
 pid: 6 ticks: 12 priority: 6
 pid: 7 ticks: 25 priority: 12
 pid: 8 ticks: 50 priority: 25
 Number of processes in use 8
 XV6_SCHEDULER	 SUCCESS
+
 
 test test_11 PASSED (1 of 1)
  (Correct number of processes in use)
@@ -649,8 +653,8 @@ Test that getschedstate fails for bad pointer
 Running xv6 user progam /home/cs537-1/tests/P4/ctests/test_12.c
 Trying to build project using make
 make xv6.img fs.img
-/tmp/tmp0o006q7x/p/Makefile
-/tmp/tmp0o006q7x/p/Makefile.test
+/tmp/tmpz69ulmgb/p/Makefile
+/tmp/tmpz69ulmgb/p/Makefile.test
 make: 'xv6.img' is up to date.
 make: 'fs.img' is up to date.
 make qemu-nox CPUS=1
@@ -693,8 +697,8 @@ Three process workload for scheduler graph
 Running xv6 user progam /home/cs537-1/tests/P4/ctests/test_13.c
 Trying to build project using make
 make xv6.img fs.img
-/tmp/tmp0o006q7x/p/Makefile
-/tmp/tmp0o006q7x/p/Makefile.test
+/tmp/tmpz69ulmgb/p/Makefile
+/tmp/tmpz69ulmgb/p/Makefile.test
 make: 'xv6.img' is up to date.
 make: 'fs.img' is up to date.
 make qemu-nox CPUS=1
@@ -747,8 +751,8 @@ Process using nice should have lower priority
 Running xv6 user progam /home/cs537-1/tests/P4/ctests/test_14.c
 Trying to build project using make
 make xv6.img fs.img
-/tmp/tmp0o006q7x/p/Makefile
-/tmp/tmp0o006q7x/p/Makefile.test
+/tmp/tmpz69ulmgb/p/Makefile
+/tmp/tmpz69ulmgb/p/Makefile.test
 make: 'xv6.img' is up to date.
 make: 'fs.img' is up to date.
 make qemu-nox CPUS=1
@@ -775,6 +779,7 @@ init: starting sh
 $ tester
 tester
 XV6_SCHEDULER	 SUCCESS
+
 
 test test_14 PASSED (1 of 1)
  (Process using nice should have lower priority)

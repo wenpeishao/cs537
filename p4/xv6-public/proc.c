@@ -361,53 +361,57 @@ void update_priority(void)
 //       via swtch back to the scheduler.
 void scheduler(void)
 {
-  struct proc *p;
   struct cpu *c = mycpu();
-
   c->proc = 0;
 
-  for (;;)
+  while (1)
   {
+    // Allow for hardware interrupts.
     sti();
-    acquire(&ptable.lock);
-    struct proc *highp = 0;
-    int max = 2147483647;
 
-    for (p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+    // Acquire process table lock.
+    acquire(&ptable.lock);
+
+    // Initialize pointers and values to identify the highest priority process.
+    struct proc *selected_process = 0;
+    int highest_priority = 50000;
+
+    for (struct proc *p = ptable.proc; p < &ptable.proc[NPROC]; p++)
     {
-      if (p->state != RUNNABLE)
+      if (p->state == RUNNABLE && p->priority < highest_priority)
       {
-        continue;
-      }
-      if (p->priority < max)
-      {
-        max = p->priority;
-        highp = p;
+        highest_priority = p->priority;
+        selected_process = p;
       }
     }
-    p = highp;
-    if (p != 0)
+
+    // If a runnable process was found, switch to its context and run it.
+    if (selected_process)
     {
-      counter++;
-      c->proc = p;
-      // cprintf("PID: %d, exec_ticks: %d, current tickets: %d\n", myproc()->pid, myproc()->exec_ticks, counter); // Debugging output
+      // Uncomment for debugging purposes:
+      // cprintf("PID: %d, exec_ticks: %d, current tickets: %d\n", selected_process->pid, selected_process->exec_ticks, counter);
 
-      switchuvm(p);
-      p->state = RUNNING;
-      p->cpu_ticks++;
-      p->exec_ticks++;
+      c->proc = selected_process;
+      switchuvm(selected_process);
+      selected_process->state = RUNNING;
+      selected_process->cpu_ticks++;
+      selected_process->exec_ticks++;
 
-      swtch(&(c->scheduler), p->context);
+      // Context switch to selected process.
+      swtch(&(c->scheduler), selected_process->context);
+
+      // Switch back to kernel mode.
       switchkvm();
 
-      // Process is done running for now.
-      // It should have changed its p->state before coming back.
+      // Reset current process pointer after execution.
       c->proc = 0;
     }
 
+    // Release the process table lock.
     release(&ptable.lock);
   }
 }
+
 // void scheduler(void)
 // {
 //   struct proc *p;

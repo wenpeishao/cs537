@@ -10,6 +10,6 @@
 All features implemented and pass all test.
 
 ## Files Modified:
-proc.c proc.h usys.s syscall.c syscall.h sysproc.c trap.c Makefile
+proc.c proc.h usys.s syscall.c syscall.h sysproc.c trap.c Makefile defs.h
 
 ## PS
