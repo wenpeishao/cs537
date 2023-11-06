@@ -142,7 +142,6 @@ void update_vma(struct proc *curproc, int vma_index, void *addr, int length, int
   // Handle file-backed or anonymous VMA specifics here
   if (!(flags & MAP_ANONYMOUS))
   {
-    cprintf("File-backed VMA\n");
     curproc->vmas[vma_index].pf = curproc->ofile[fd];
   }
 }
@@ -163,8 +162,8 @@ void *mmap(void *addr, int length, int prot, int flags, int fd, int offset)
   if (!(flags & MAP_FIXED))
   {
     // Start the search from the beginning of the mmap region
-    void *start_addr = (void *)0x60000000;
-    void *end_addr = (void *)0x80000000;
+    void *start_addr = (void *)VMA_START;
+    void *end_addr = (void *)VMA_END;
     addr = start_addr;
 
     while (addr < end_addr)
@@ -187,9 +186,8 @@ void *mmap(void *addr, int length, int prot, int flags, int fd, int offset)
   else
   {
     // Check if the requested address range is valid and free
-    if ((uint)addr < 0x60000000 || (uint)addr + alloc_length > 0x80000000 || !is_region_free(curproc->pgdir, addr, alloc_length))
+    if ((uint)addr < VMA_START || (uint)addr + alloc_length > VMA_END || !is_region_free(curproc->pgdir, addr, alloc_length))
     {
-      cprintf("mmap: address range is invalid or not free\n");
       return (void *)-1;
     }
   }
@@ -236,13 +234,10 @@ void *mmap(void *addr, int length, int prot, int flags, int fd, int offset)
     // copy a page of the file from the disk
     if (!(flags & MAP_ANONYMOUS))
     {
-      cprintf("copy a page of the file from the disk\n");
-
       struct file *f = curproc->ofile[fd];
       ilock(f->ip);
       readi(f->ip, mem, i, PGSIZE); // copy a page of the file from the disk
       iunlock(f->ip);
-      cprintf("file type is %d \n", f->type);
     }
   }
   // Update VMA
@@ -255,12 +250,7 @@ void *mmap(void *addr, int length, int prot, int flags, int fd, int offset)
   curproc->vmas[vma_index].valid = 1;
   if (!(flags & MAP_ANONYMOUS))
   {
-    cprintf("File-backed VMA\n");
     curproc->vmas[vma_index].pf = curproc->ofile[fd];
-  }
-  else
-  {
-    cprintf("Anonymous VMA\n");
   }
   return addr;
 }
