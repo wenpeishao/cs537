@@ -6,8 +6,8 @@
 **Email:** wshao33@wisc.edu
 
 **Partner** Weitao Su
-**CS Login:** 
-**Wisc ID:** 
+**CS Login:** weitao
+**Wisc ID:** 9083281262
 **Email:** wsu43@wisc.edu
 
 ## Implementation Status:
