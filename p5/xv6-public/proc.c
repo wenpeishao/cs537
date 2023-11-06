@@ -478,6 +478,37 @@ int growproc(int n)
   return 0;
 }
 
+void clean_vma(struct proc* p){
+  for (i = 0; i < 32; i++) {
+          if (p->vmas[i].valid) {
+            if (p->vmas[i].pf) {
+              fileclose(p->vmas[i].pf);
+              p->vmas[i].pf = 0;
+            }
+            p->vmas[i].valid = 0;
+          }
+        }
+}
+// Function to copy a single VMA from the parent to the child process.
+// Returns 0 on success, -1 on failure.
+int copy_vma(struct proc *child, struct VMA *source_vma, int index) {
+  struct VMA *dest_vma = &child->vmas[index];
+  // Check if VMA is valid
+  if (!source_vma->valid) {
+    return -1;
+  }
+  // Copy VMA struct
+  *dest_vma = *source_vma;
+  //check if there's a file also need to copy
+  if (source_vma->pf) {
+    dest_vma->pf = filedup(source_vma->pf);
+  }
+  // Set the VMA as valid.
+  dest_vma->valid = 1;
+  return 0;
+}
+
+
 // Create a new process copying p as the parent.
 // Sets up stack to return as if from system call.
 // Caller must set state of returned proc to RUNNABLE.
@@ -511,6 +542,20 @@ int fork(void)
     if (curproc->ofile[i])
       np->ofile[i] = filedup(curproc->ofile[i]);
   np->cwd = idup(curproc->cwd);
+
+  //copy VMAs
+  for (i = 0; i < 32; i++) {
+    if (curproc->vmas[i].valid) {
+      if (copy_vma(np, &curproc->vmas[i], i) != 0) {
+        //handle error
+        kfree(np->kstack);
+        np->kstack = 0;
+        np->state = UNUSED;
+        clean_vma(np);
+        return -1;
+      }
+    }
+  }
 
   safestrcpy(np->name, curproc->name, sizeof(curproc->name));
 
@@ -569,7 +614,8 @@ void exit(void)
   }
 
   // Deallocate all VMAs
-
+  clean_vma(curproc);
+  
   // Jump into the scheduler, never to return.
   curproc->state = ZOMBIE;
   sched();
