@@ -7,48 +7,75 @@
 #include "x86.h"
 #include "traps.h"
 #include "spinlock.h"
+#include "mmap.h"
+
+struct file
+{
+  enum
+  {
+    FD_NONE,
+    FD_PIPE,
+    FD_INODE
+  } type;
+  int ref; // reference count
+  char readable;
+  char writable;
+  struct pipe *pipe;
+  struct inode *ip;
+  uint off;
+};
 
 // Interrupt descriptor table (shared by all CPUs).
 struct gatedesc idt[256];
-extern uint vectors[];  // in vectors.S: array of 256 entry pointers
+extern uint vectors[]; // in vectors.S: array of 256 entry pointers
 struct spinlock tickslock;
 uint ticks;
 
-void
-tvinit(void)
+int mappages(pde_t *pgdir, void *va, uint size, uint pa, int perm);
+pte_t *walkpgdir(pde_t *pgdir, const void *va, int alloc);
+
+void tvinit(void)
 {
   int i;
 
-  for(i = 0; i < 256; i++)
-    SETGATE(idt[i], 0, SEG_KCODE<<3, vectors[i], 0);
-  SETGATE(idt[T_SYSCALL], 1, SEG_KCODE<<3, vectors[T_SYSCALL], DPL_USER);
+  for (i = 0; i < 256; i++)
+    SETGATE(idt[i], 0, SEG_KCODE << 3, vectors[i], 0);
+  SETGATE(idt[T_SYSCALL], 1, SEG_KCODE << 3, vectors[T_SYSCALL], DPL_USER);
 
   initlock(&tickslock, "time");
 }
 
-void
-idtinit(void)
+void idtinit(void)
 {
   lidt(idt, sizeof(idt));
 }
 
-//PAGEBREAK: 41
-void
-trap(struct trapframe *tf)
+// Helper function to handle segmentation faults
+void handle_segmentation_fault(struct proc *p)
 {
-  if(tf->trapno == T_SYSCALL){
-    if(myproc()->killed)
+  cprintf("Segmentation Fault\n");
+  p->killed = 1;
+}
+
+// PAGEBREAK: 41
+void trap(struct trapframe *tf)
+{
+  if (tf->trapno == T_SYSCALL)
+  {
+    if (myproc()->killed)
       exit();
     myproc()->tf = tf;
     syscall();
-    if(myproc()->killed)
+    if (myproc()->killed)
       exit();
     return;
   }
 
-  switch(tf->trapno){
+  switch (tf->trapno)
+  {
   case T_IRQ0 + IRQ_TIMER:
-    if(cpuid() == 0){
+    if (cpuid() == 0)
+    {
       acquire(&tickslock);
       ticks++;
       wakeup(&ticks);
@@ -60,7 +87,7 @@ trap(struct trapframe *tf)
     ideintr();
     lapiceoi();
     break;
-  case T_IRQ0 + IRQ_IDE+1:
+  case T_IRQ0 + IRQ_IDE + 1:
     // Bochs generates spurious IDE1 interrupts.
     break;
   case T_IRQ0 + IRQ_KBD:
@@ -77,10 +104,97 @@ trap(struct trapframe *tf)
             cpuid(), tf->cs, tf->eip);
     lapiceoi();
     break;
+  case T_PGFLT:
+    struct proc *p = myproc();
+    // Fault Address Retrieval
+    uint addr = rcr2();
+    // Initial Validity Checks:
+    if (addr < VMA_START || addr + PGSIZE > VMA_END)
+    {
+      handle_segmentation_fault(p);
+      break;
+    }
+    // Memory Region Checks:
+    if (!is_region_free(p->pgdir, (void *)addr + PGSIZE, PGSIZE))
+    {
+      handle_segmentation_fault(p);
+      break;
+    }
+    // Growth Direction Check:
+    if (is_region_free(p->pgdir, (void *)addr - PGSIZE, PGSIZE))
+    {
+      cprintf("MAP_GROWSUP: prevs aint free");
+      myproc()->killed = 1;
+      break;
+    }
 
-  //PAGEBREAK: 13
+    uint a = PGROUNDDOWN(addr);
+    struct VMA *vma_to_grow = 0;
+    struct VMA *vma_next = 0;
+    int next_idx = 0;
+    // VMA Expansion Logic:
+    for (int i = 0; i < 32; i++)
+    {
+      if (i < 30 && p->vmas[i + 2].valid == 1)
+      {
+        vma_to_grow = 0;
+        break;
+      }
+      if (i != 31)
+      {
+        vma_next = &p->vmas[i + 1];
+        next_idx = i + 1;
+      }
+      struct VMA *cur = &p->vmas[i];
+      if ((uint)cur->end <= addr && addr < (uint)cur->end + PGSIZE)
+      {
+        vma_to_grow = cur;
+        break;
+      }
+    }
+    if (!vma_to_grow || !(vma_to_grow->flags & MAP_GROWSUP))
+    {
+      handle_segmentation_fault(p);
+
+      break;
+    }
+    // Allocation and Mapping of New Memory:
+    char *mem = kalloc();
+    if (mem == 0)
+    {
+      cprintf("Segmentation Fault\n");
+      deallocuvm(p->pgdir, a, a);
+      myproc()->killed = 1;
+      break;
+    }
+    memset(mem, 0, PGSIZE);
+    mappages(p->pgdir, (void *)a, PGSIZE, V2P(mem), PTE_W | PTE_U);
+    // Update VMA Structure:
+    vma_to_grow->next = next_idx;
+    vma_next->addr = vma_to_grow->addr + PGSIZE;
+    vma_next->end = vma_to_grow->end + PGSIZE;
+    vma_next->prot = vma_to_grow->prot;
+    vma_next->flags = vma_to_grow->flags;
+    vma_next->fd = vma_to_grow->fd;
+    vma_next->offset = vma_to_grow->offset + PGSIZE;
+    vma_next->valid = 1;
+    vma_next->pf = vma_to_grow->pf;
+    // Handling Non-Anonymous Mappings:
+    if (!(vma_next->flags & MAP_ANONYMOUS))
+    {
+      struct file *f = p->ofile[vma_next->fd];
+      ilock(f->ip);
+      readi(f->ip, mem, PGSIZE, PGSIZE); // copy a page of the file from the disk
+      iunlock(f->ip);
+    }
+    break;
+
+  // PAGEBREAK: 13
   default:
-    if(myproc() == 0 || (tf->cs&3) == 0){
+    // need to allocate more space
+    /*mmap_growsup();*/
+    if (myproc() == 0 || (tf->cs & 3) == 0)
+    {
       // In kernel, it must be our mistake.
       cprintf("unexpected trap %d from cpu %d eip %x (cr2=0x%x)\n",
               tf->trapno, cpuid(), tf->eip, rcr2());
@@ -97,16 +211,16 @@ trap(struct trapframe *tf)
   // Force process exit if it has been killed and is in user space.
   // (If it is still executing in the kernel, let it keep running
   // until it gets to the regular system call return.)
-  if(myproc() && myproc()->killed && (tf->cs&3) == DPL_USER)
+  if (myproc() && myproc()->killed && (tf->cs & 3) == DPL_USER)
     exit();
 
   // Force process to give up CPU on clock tick.
   // If interrupts were on while locks held, would need to check nlock.
-  if(myproc() && myproc()->state == RUNNING &&
-     tf->trapno == T_IRQ0+IRQ_TIMER)
+  if (myproc() && myproc()->state == RUNNING &&
+      tf->trapno == T_IRQ0 + IRQ_TIMER)
     yield();
 
   // Check if the process has been killed since we yielded
-  if(myproc() && myproc()->killed && (tf->cs&3) == DPL_USER)
+  if (myproc() && myproc()->killed && (tf->cs & 3) == DPL_USER)
     exit();
 }

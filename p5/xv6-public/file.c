@@ -155,3 +155,40 @@ filewrite(struct file *f, char *addr, int n)
   panic("filewrite");
 }
 
+// write to file f, start from off
+int filewriteoff(struct file *f, char * addr, int n , int off)
+{
+  int r, ret = 0;
+
+  if(f->writable == 0)
+    return -1;
+
+  if(f->type == FD_INODE){
+    int max = ((MAXOPBLOCKS-1-1-2) / 2) * BSIZE;
+    int i = 0;
+    while(i < n){
+      int n1 = n - i;
+      if(n1 > max)
+        n1 = max;
+
+      begin_op();
+      ilock(f->ip);
+      if ((r = writei(f->ip, addr + i, off, n1)) > 0)
+        off += r;
+      iunlock(f->ip);
+      end_op();
+
+      if(r != n1){
+        // error from writei
+        break;
+      }
+      i += r;
+    }
+    ret = (i == n ? n : -1);
+} else {
+  cprintf("file type is %d\n",f->type);
+  panic("filewriteoff");
+}
+  return ret;
+}
+
