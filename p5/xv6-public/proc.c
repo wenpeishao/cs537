@@ -263,13 +263,18 @@ int munmap(void *addr, int length)
   struct VMA *vp = 0;
   // Find Corresponding VMA:
   for (int i = 0; i < 32; i++)
-    if (curproc->vmas[i].valid == 1 && curproc->vmas[i].addr <= addr && addr < curproc->vmas[i].end)
+    if (curproc->vmas[i].valid == 1)
     {
-      vp = &curproc->vmas[i];
-      break;
+      if (curproc->vmas[i].addr <= addr && addr < curproc->vmas[i].end)
+      {
+        vp = &curproc->vmas[i];
+        break;
+      }
     }
   if (vp == 0)
-    panic("munmap no such vma");
+  {
+    panic("No vma found");
+  }
   // Page Table Entry (PTE) Lookup:
   pte_t *pte;
   if ((pte = walkpgdir(curproc->pgdir, (void *)addr, 0)) != 0)
@@ -307,15 +312,14 @@ int munmap(void *addr, int length)
       {
         write_length = length;
       }
-      vp = &curproc->vmas[vp->next];
       addr += PGSIZE;
+      vp = &curproc->vmas[vp->next];
       if (!(vp->flags & MAP_ANONYMOUS))
       {
         filewriteoff(vp->pf, addr, write_length, off);
       }
-
-      deallocuvm(curproc->pgdir, (int)addr + write_length, (int)addr);
       off += PGSIZE;
+      deallocuvm(curproc->pgdir, (int)addr + write_length, (int)addr);
     }
   }
   return 0;

@@ -69,6 +69,13 @@ void update_vma_structure(struct VMA *next, struct VMA *v_grow, int addr)
   next->valid = 1;
   next->pf = v_grow->pf;
 }
+void copy_page_from_disk(struct proc *process, char *memory, struct VMA *next)
+{
+  struct file *f = process->ofile[next->fd];
+  ilock(f->ip);
+  readi(f->ip, memory, PGSIZE, PGSIZE); // copy a page of the file from the disk
+  iunlock(f->ip);
+}
 
 // PAGEBREAK: 41
 void trap(struct trapframe *tf)
@@ -117,7 +124,7 @@ void trap(struct trapframe *tf)
             cpuid(), tf->cs, tf->eip);
     lapiceoi();
     break;
-  case T_PGFLT:
+  case T_PGFLT: // Page Fault handler
     struct proc *p = myproc();
     // Fault Address Retrieval
     uint addr = rcr2();
@@ -142,56 +149,51 @@ void trap(struct trapframe *tf)
     }
 
     uint a = PGROUNDDOWN(addr);
-    struct VMA *vma_to_grow = 0;
-    struct VMA *vma_next = 0;
     int next_idx = 0;
+    struct VMA *next = 0;
+    struct VMA *grow = 0;
     // VMA Expansion Logic:
     for (int i = 0; i < 32; i++)
     {
-      if (i < 30 && p->vmas[i + 2].valid == 1)
-      {
-        vma_to_grow = 0;
-        break;
-      }
       if (i != 31)
       {
-        vma_next = &p->vmas[i + 1];
+        next = &p->vmas[i + 1];
         next_idx = i + 1;
+      }
+      if (i < 30 && p->vmas[i + 2].valid == 1)
+      {
+        grow = 0;
+        break;
       }
       struct VMA *cur = &p->vmas[i];
       if ((uint)cur->end <= addr && addr < (uint)cur->end + PGSIZE)
       {
-        vma_to_grow = cur;
+        grow = cur;
         break;
       }
     }
-    if (!vma_to_grow || !(vma_to_grow->flags & MAP_GROWSUP))
+    if (!grow || !(grow->flags & MAP_GROWSUP))
     {
       handle_segmentation_fault(p);
-
       break;
     }
     // Allocation and Mapping of New Memory:
     char *mem = kalloc();
     if (mem == 0)
     {
-      cprintf("Segmentation Fault\n");
+      handle_segmentation_fault(p);
       deallocuvm(p->pgdir, a, a);
-      myproc()->killed = 1;
       break;
     }
     memset(mem, 0, PGSIZE);
     mappages(p->pgdir, (void *)a, PGSIZE, V2P(mem), PTE_W | PTE_U);
 
     // Update VMA Structure:
-    update_vma_structure(vma_next, vma_to_grow, next_idx);
+    update_vma_structure(next, grow, next_idx);
     // Handling Non-Anonymous Mappings:
-    if (!(vma_next->flags & MAP_ANONYMOUS))
+    if (!(next->flags & MAP_ANONYMOUS))
     {
-      struct file *f = p->ofile[vma_next->fd];
-      ilock(f->ip);
-      readi(f->ip, mem, PGSIZE, PGSIZE); // copy a page of the file from the disk
-      iunlock(f->ip);
+      copy_page_from_disk(p, mem, next);
     }
     break;
 

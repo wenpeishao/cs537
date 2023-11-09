@@ -205,7 +205,6 @@ int filewriteoff(struct file *f, char *data, int size, int offset)
   else
   {
     // If file type is not FD_INODE, output error message and panic
-    cprintf("file type is %d\n", f->type);
     panic("filewriteoff");
   }
 
