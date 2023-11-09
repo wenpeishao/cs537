@@ -85,24 +85,32 @@ int sys_uptime(void)
   return xticks;
 }
 
-void *
-sys_mmap(void)
+void *sys_mmap(void)
 {
-  // int addr;
   int addr, length, prot, flags, fd, offset;
-  argint(0, &addr);
-  argint(1, &length);
-  argint(2, &prot);
-  argint(3, &flags);
-  argint(4, &fd);
-  argint(5, &offset);
+
+  // Retrieve system call arguments
+  if (argint(0, &addr) < 0 || argint(1, &length) < 0 ||
+      argint(2, &prot) < 0 || argint(3, &flags) < 0 ||
+      argint(4, &fd) < 0 || argint(5, &offset) < 0)
+  {
+    return (void *)-1; // Return error if any argint call fails
+  }
+
+  // Call mmap with the retrieved arguments
   return mmap((void *)addr, length, prot, flags, fd, offset);
 }
 
 int sys_munmap(void)
 {
   int addr, length;
-  argint(0, &addr);
-  argint(1, &length);
+
+  // Retrieve system call arguments
+  if (argint(0, &addr) < 0 || argint(1, &length) < 0)
+  {
+    return -1; // Return error if any argint call fails
+  }
+
+  // Call munmap with the retrieved arguments
   return munmap((void *)addr, length);
 }

@@ -57,6 +57,19 @@ void handle_segmentation_fault(struct proc *p)
   p->killed = 1;
 }
 
+void update_vma_structure(struct VMA *next, struct VMA *v_grow, int addr)
+{
+  v_grow->next = addr;
+  next->addr = v_grow->addr + PGSIZE;
+  next->end = v_grow->end + PGSIZE;
+  next->prot = v_grow->prot;
+  next->flags = v_grow->flags;
+  next->fd = v_grow->fd;
+  next->offset = v_grow->offset + PGSIZE;
+  next->valid = 1;
+  next->pf = v_grow->pf;
+}
+
 // PAGEBREAK: 41
 void trap(struct trapframe *tf)
 {
@@ -169,16 +182,9 @@ void trap(struct trapframe *tf)
     }
     memset(mem, 0, PGSIZE);
     mappages(p->pgdir, (void *)a, PGSIZE, V2P(mem), PTE_W | PTE_U);
+
     // Update VMA Structure:
-    vma_to_grow->next = next_idx;
-    vma_next->addr = vma_to_grow->addr + PGSIZE;
-    vma_next->end = vma_to_grow->end + PGSIZE;
-    vma_next->prot = vma_to_grow->prot;
-    vma_next->flags = vma_to_grow->flags;
-    vma_next->fd = vma_to_grow->fd;
-    vma_next->offset = vma_to_grow->offset + PGSIZE;
-    vma_next->valid = 1;
-    vma_next->pf = vma_to_grow->pf;
+    update_vma_structure(vma_next, vma_to_grow, next_idx);
     // Handling Non-Anonymous Mappings:
     if (!(vma_next->flags & MAP_ANONYMOUS))
     {
