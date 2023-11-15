@@ -69,6 +69,8 @@ void update_vma_structure(struct VMA *next, struct VMA *v_grow, int addr)
   next->valid = 1;
   next->pf = v_grow->pf;
 }
+// load a page from the disk into the new memory space,
+// ensuring the process's memory reflects the contents of the file it's mapped to.
 void copy_page_from_disk(struct proc *process, char *memory, struct VMA *next)
 {
   struct file *f = process->ofile[next->fd];
@@ -153,6 +155,8 @@ void trap(struct trapframe *tf)
     struct VMA *next = 0;
     struct VMA *grow = 0;
     // VMA Expansion Logic:
+    // Iterates through the process's virtual memory areas (VMAs) to find
+    // the VMA that needs to be expanded to accommodate the new page.
     for (int i = 0; i < 32; i++)
     {
       if (i != 31)
@@ -160,6 +164,7 @@ void trap(struct trapframe *tf)
         next = &p->vmas[i + 1];
         next_idx = i + 1;
       }
+      // can't growth if page next to gard is used
       if (i < 30 && p->vmas[i + 2].valid == 1)
       {
         grow = 0;
@@ -172,6 +177,7 @@ void trap(struct trapframe *tf)
         break;
       }
     }
+    // If no suitable VMA is found or the VMA does not support upward growth, a segmentation fault is handled.
     if (!grow || !(grow->flags & MAP_GROWSUP))
     {
       handle_segmentation_fault(p);

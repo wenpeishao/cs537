@@ -209,24 +209,28 @@ void *mmap(void *addr, int length, int prot, int flags, int fd, int offset)
   }
   // Allocate and map pages in the virtual memory, rounding up the length to the nearest page size
   char *mem;
-  // cprintf("start allocation");
   for (int i = 0; i < alloc_length; i += PGSIZE)
   {
     // Allocate a physical page of memory
     mem = kalloc();
     if (mem == 0)
     {
+      // Allocation failed, free previously allocated pages
       cprintf("mmap: out of memory (kalloc failed)\n");
       deallocuvm(curproc->pgdir, (int)addr + i, (int)addr);
       return (void *)-1;
     }
-    // Initialize the allocated memory to zero
+    // Clear allocated memory to zero
     memset(mem, 0, PGSIZE);
     // Map the virutal memory address (a + i) to the physical address of the allocated memory
+    // Create PTEs for virtual addresses starting at va that refer to
+    // physical addresses starting at pa. va and size might not
+    // be page-aligned.
     int status = mappages(curproc->pgdir, (char *)(addr + i), PGSIZE, V2P(mem), PTE_W | PTE_U);
     if (status)
     {
       cprintf("mmap: mappages failed\n");
+      // Allocation failed, free previously allocated pages
       deallocuvm(curproc->pgdir, (int)addr + i + PGSIZE, (int)addr);
       kfree(mem);
       return (void *)-1;
