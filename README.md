@@ -8,9 +8,7 @@
     Project 6 (100 pts) - Concurrency
     Project 7 (100 pts) - File Systems
 
-    Here's an ASCII Cat
-
-                                    へ   ♡   ╱|、
-                                ૮  -   ՛ )      (`   -  7
-                                /   ⁻  ៸|       |、⁻〵
-                            乀 (ˍ, ل ل      じしˍ,)ノ    
+    Here's an ASCII Cat:
+                         ∧ ,,, ∧
+                        ( ̳• · • ̳)
+                        /    づ♡ I love you
