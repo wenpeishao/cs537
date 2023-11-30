@@ -7,33 +7,48 @@
 #define MAX_FILE_NAME_LEN 32
 #define WFS_MAGIC 0xdeadbeef
 
-struct wfs_sb {
+struct wfs_sb
+{
     uint32_t magic;
     uint32_t head;
 };
 
-struct wfs_inode {
+struct wfs_inode
+{
     unsigned int inode_number;
-    unsigned int deleted;       // 1 if deleted, 0 otherwise
-    unsigned int mode;          // type. S_IFDIR if the inode represents a directory or S_IFREG if it's for a file
-    unsigned int uid;           // user id
-    unsigned int gid;           // group id
-    unsigned int flags;         // flags
-    unsigned int size;          // size in bytes
-    unsigned int atime;         // last access time
-    unsigned int mtime;         // last modify time
-    unsigned int ctime;         // inode change time (the last time any field of inode is modified)
-    unsigned int links;         // number of hard links to this file (this can always be set to 1)
+    unsigned int deleted; // 1 if deleted, 0 otherwise
+    unsigned int mode;    // type. S_IFDIR if the inode represents a directory or S_IFREG if it's for a file
+    unsigned int uid;     // user id
+    unsigned int gid;     // group id
+    unsigned int flags;   // flags
+    unsigned int size;    // size in bytes
+    unsigned int atime;   // last access time
+    unsigned int mtime;   // last modify time
+    unsigned int ctime;   // inode change time (the last time any field of inode is modified)
+    unsigned int links;   // number of hard links to this file (this can always be set to 1)
 };
 
-struct wfs_dentry {
+struct wfs_dentry
+{
     char name[MAX_FILE_NAME_LEN];
     unsigned long inode_number;
 };
 
-struct wfs_log_entry {
+struct wfs_log_entry
+{
     struct wfs_inode inode;
     char data[];
 };
+struct wfs_inode *get_inode(unsigned inode_number);
+unsigned long inode_for_name(char *name, struct wfs_log_entry *log_entry);
+struct wfs_inode *path_to_inode(const char *path);
+
+struct wfs_private
+{
+    int fd;
+    void *disk;
+    unsigned long len;
+    size_t head;
+}
 
 #endif

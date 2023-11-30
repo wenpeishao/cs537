@@ -5,10 +5,10 @@
     Project 3 (100 pts) - Custom Shell - Due Oct 10th @ 11:59pmUPDATE:There was an error in which exec() system call to use. Your solution should use execvp(). The instructions have been updated with this correction.
     Project 4 (100 pts) - XV6 Scheduler - Due Oct 24th @ 11:59pm
     Project 5 (100 pts) - XV6 Memory Management - Due Nov 7th @ 11:59pm
-    Project 6 (100 pts) - Concurrency
-    Project 7 (100 pts) - File Systems
+    Project 6 (100 pts) - Concurrency - Due Nov 22nd @ 11:59pm
+    Project 7 (100 pts) - File Systems - Due Dec 8th @ 11:59pm
 
     Here's an ASCII Cat:
                          ∧ ,,, ∧
                         ( ̳• · • ̳)
-                        /    づ♡ I love you
+                         /    づ♡ I love you
