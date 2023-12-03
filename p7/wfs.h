@@ -7,16 +7,6 @@
 #define MAX_FILE_NAME_LEN 32
 #define WFS_MAGIC 0xdeadbeef
 
-#define S_IFDIR 0040000
-#define S_IFCHR 0020000
-#define S_IFBLK 0060000
-#define S_IFREG 0100000
-#define S_IFIFO 0010000
-#define S_IFLNK 0120000
-#define S_IFSOCK 0140000
-
-#define MAX_LOG_ENTRIES 100 // Define the maximum number of log entries
-
 struct wfs_sb
 {
     uint32_t magic;

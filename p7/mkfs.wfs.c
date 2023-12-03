@@ -22,7 +22,6 @@ void init_wfs(const char *disk_path)
 {
     int fd;
     struct wfs_sb *sb;
-    struct wfs_inode *root_inode;
     struct wfs_log_entry *log_entry;
 
     size_t disk_size = 1048576; // 1MB disk size
@@ -50,7 +49,7 @@ void init_wfs(const char *disk_path)
     sb->head = sizeof(struct wfs_sb);
 
     // Initialize the first log entry for the root inode
-    log_entry = (struct wfs_log_entry *)(disk_map + sb->head);
+    log_entry = (struct wfs_log_entry *)((char *)disk_map + sb->head);
     log_entry->inode.inode_number = 0;                                                     // Root inode number
     log_entry->inode.deleted = 0;                                                          // Not deleted
     log_entry->inode.mode = S_IFDIR;                                                       // Directory mode
@@ -62,7 +61,7 @@ void init_wfs(const char *disk_path)
     log_entry->inode.links = 1;                                                            // At least one link
 
     // Update the head to point after the root inode
-    sb->head += sizeof(struct wfs_inode);
+    sb->head += sizeof(struct wfs_inode) + sizeof(struct wfs_log_entry);
 
     // Synchronize memory-mapped content to disk
     if (msync(disk_map, disk_size, MS_SYNC) == -1)
