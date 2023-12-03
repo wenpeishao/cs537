@@ -47,11 +47,12 @@ void init_wfs(const char *disk_path)
     // Initialize the superblock
     sb = (struct wfs_sb *)disk_map;
     sb->magic = WFS_MAGIC;
-    sb->head = sizeof(struct wfs_sb); // Assuming the superblock is at the beginning
+    sb->head = sizeof(struct wfs_sb);
 
     // Initialize the first log entry for the root inode
     log_entry = (struct wfs_log_entry *)(disk_map + sb->head);
-    log_entry->inode.inode_number = 0;                                                     // Root inode number
+    log_entry->inode.inode_number = 0;
+    log_entry->active = 1;                                                                 // Root inode number
     log_entry->inode.deleted = 0;                                                          // Not deleted
     log_entry->inode.mode = S_IFDIR;                                                       // Directory mode
     log_entry->inode.uid = 0;                                                              // Root user
