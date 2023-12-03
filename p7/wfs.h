@@ -21,7 +21,6 @@ struct wfs_sb
 {
     uint32_t magic;
     uint32_t head;
-    unsigned int log_entries[MAX_LOG_ENTRIES]; // Array to store log entry numbers
 };
 
 struct wfs_inode
@@ -38,7 +37,7 @@ struct wfs_inode
     unsigned int ctime;   // inode change time (the last time any field of inode is modified)
     unsigned int links;   // number of hard links to this file (this can always be set to 1)
 };
-// story in data for log entry
+// store in data for log entry
 struct wfs_dentry
 {
     char name[MAX_FILE_NAME_LEN];
@@ -47,10 +46,8 @@ struct wfs_dentry
 
 struct wfs_log_entry
 {
-    unsigned int entry_number;
     struct wfs_inode inode;
-    char data[];         // if it is dir store wfs_dentry
-    unsigned int active; // 1 if active, 0 otherwise
+    char data[]; // if it is dir store wfs_dentry
 };
 struct wfs_inode *get_inode(unsigned inode_number);
 unsigned long inode_for_name(char *name, struct wfs_log_entry *log_entry);
