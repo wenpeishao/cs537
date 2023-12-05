@@ -1,4 +1,5 @@
-NAME = mount.wfs mkfs.wfs fsck.wfs
+NAME = mount.wfs mkfs.wfs 
+# fsck.wfs
 
 CC = gcc
 CFLAGS = -Wall -Werror -pedantic -std=gnu18
