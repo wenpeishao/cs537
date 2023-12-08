@@ -19,8 +19,29 @@
 #include <fuse.h>
 #include "wfs.h"
 
-struct wfs_sb *sb;
+struct wfs_sb *sb = NULL;
+void *disk = NULL;
 struct wfs_log_entry *log_entry;
+
+struct wfs_log_entry *get_log_entry(unsigned int ino)
+{
+    // printf("number = %d\n", ino);
+    char *ptr = NULL;
+    ptr = (char *)((char *)disk + sizeof(struct wfs_sb));
+    struct wfs_log_entry *lep = (struct wfs_log_entry *)ptr;
+    struct wfs_log_entry *final = NULL;
+    // begin with first entry
+    for (; ptr < (char *)disk + sb->head; ptr += (sizeof(struct wfs_inode) + lep->inode.size))
+    {
+        lep = (struct wfs_log_entry *)ptr;
+        if (lep->inode.inode_number == ino && lep->inode.deleted == 0)
+        {
+            final = lep;
+        }
+    }
+    // not found
+    return final;
+}
 
 struct wfs_inode *get_inode(unsigned inode_number)
 {
@@ -61,6 +82,64 @@ void add_directory_entry(struct wfs_inode *dir_inode, const char *entry_name, un
     dir_inode->size += sizeof(struct wfs_dentry);
     // Update timestamps
     dir_inode->mtime = dir_inode->ctime = time(NULL);
+}
+
+unsigned long get_inode_number(char *name, struct wfs_log_entry *l)
+{
+    char *end_ptr = (char *)l + (sizeof(struct wfs_inode) + l->inode.size);
+    char *cur = l->data; // begin at dentry
+    struct wfs_dentry *d_ptr = (struct wfs_dentry *)cur;
+    for (; cur < end_ptr; cur += sizeof(struct wfs_dentry))
+    {
+        d_ptr = (struct wfs_dentry *)cur;
+        if (strcmp(name, d_ptr->name) == 0)
+        {
+            return d_ptr->inode_number;
+        }
+    }
+    // not found
+    return -1;
+}
+
+struct wfs_log_entry *path_to_logentry(const char *path)
+{
+
+    char *path_copy = strdup(path);
+    if (path_copy == NULL)
+    {
+        perror("Failed to duplicate path string");
+        return NULL;
+    }
+    // int slashes = count_slashes(path);
+
+    unsigned long inodenum = 0;
+
+    struct wfs_log_entry *logptr = NULL;
+
+    // find root first
+    logptr = get_log_entry(inodenum);
+
+    puts(path);
+
+    char *token = strtok(path_copy, "/");
+    while (token != NULL)
+    {
+        if (logptr == NULL)
+        {
+            return NULL;
+        }
+        inodenum = get_inode_number(token, logptr);
+        if (inodenum == -1)
+        {
+            return NULL;
+        }
+
+        logptr = get_log_entry(inodenum);
+
+        token = strtok(NULL, "/");
+    }
+    free(path_copy);
+    return logptr;
 }
 
 struct wfs_inode *path_to_inode(const char *path)
@@ -407,43 +486,60 @@ int main(int argc, char *argv[])
         printf("Usage: mount.wfs [FUSE options] disk_path mount_point\n");
         return 1;
     }
-    // Initialize FUSE with specified operations
-    // TODO: implement this later
+    // should be like ./mount.wfs -f -s disk mnt or without -f
+    int i;
+    char *disk_arg = NULL;
+    // Filter argc and argv here and then pass it to fuse_main
 
-    // The second last argument is assumed to be disk_path
-    const char *disk_path = argv[argc - 2];
-
-    // Open the disk image file
-    int fd = open(disk_path, O_RDONLY);
-    if (fd == -1)
+    // Iterate over arguments
+    for (i = 1; i < argc; i++)
     {
-        perror("Error opening disk file");
-        return 1;
+        if (!(strcmp(argv[i], "-f") == 0 || strcmp(argv[i], "-s") == 0))
+        {
+            disk_arg = argv[i]; // Save the disk argument
+            // Remove 'disk' from argv
+            memmove(&argv[i], &argv[i + 1], (argc - i - 1) * sizeof(char *));
+            argc--;
+            i--;
+            break;
+        }
     }
 
-    // Get the size of the disk image
-    struct stat st;
-    if (fstat(fd, &st) == -1)
+    // open disk
+    int fd = open(disk_arg, O_RDWR | O_CREAT, 0666);
+    if (fd < 0)
     {
-        perror("Error getting disk file size");
+        perror("Failed to open disk image");
+        exit(1);
+    }
+
+    // get the file size
+    struct stat s;
+    if (fstat(fd, &s) == -1)
+    {
+        perror("Failed to get file size");
         close(fd);
-        return 1;
+        exit(1);
     }
 
-    // Map the disk image into memory
-    void *disk = mmap(NULL, st.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    // mmap disk
+    disk = mmap(NULL, s.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     if (disk == MAP_FAILED)
     {
-        perror("Error mapping disk file");
+        perror("Failed to map file");
         close(fd);
-        return 1;
+        exit(1);
     }
-    sb = disk;
-    log_entry = (struct wfs_log_entry *)((char *)disk + sb->head);
 
-    // Close the file descriptor as it's no longer needed after mapping
+    sb = (struct wfs_sb *)disk;
+    int fuse_return_value = fuse_main(argc, argv, &my_operations, NULL);
+
+    if (munmap(disk, s.st_size) == -1)
+    {
+        perror("Failed to unmap memory");
+    }
+
     close(fd);
 
-    munmap(sb, st.st_size);
-    return fuse_main(argc, argv, &my_operations, NULL);
+    return fuse_return_value;
 }
