@@ -23,448 +23,389 @@ struct wfs_sb *sb = NULL;
 void *disk = NULL;
 struct wfs_log_entry *log_entry;
 
-struct wfs_log_entry *get_log_entry(unsigned int ino)
+struct wfs_log_entry *find_parent_log_path(const char *path)
 {
-    // printf("number = %d\n", ino);
-    char *ptr = NULL;
-    ptr = (char *)((char *)disk + sizeof(struct wfs_sb));
-    struct wfs_log_entry *lep = (struct wfs_log_entry *)ptr;
-    struct wfs_log_entry *final = NULL;
-    // begin with first entry
-    for (; ptr < (char *)disk + sb->head; ptr += (sizeof(struct wfs_inode) + lep->inode.size))
+    if (path == NULL)
     {
-        lep = (struct wfs_log_entry *)ptr;
-        if (lep->inode.inode_number == ino && lep->inode.deleted == 0)
+        return NULL;
+    }
+
+    // Handle root directory separately
+    if (strcmp(path, "/") == 0 || strcmp(path, "") == 0)
+    {
+        return get_log_entry(0); // Assuming 0 is the root inode number
+    }
+
+    // Find the last occurrence of '/'
+    const char *last_slash = strrchr(path, '/');
+    if (last_slash == NULL)
+    {
+        return NULL; // No slash found - invalid path
+    }
+
+    // Calculate the length of the substring before the last slash
+    size_t length = last_slash - path;
+    if (length == 0)
+    {
+        // Parent is the root directory
+        return get_log_entry(0);
+    }
+
+    // Allocate memory for the new substring (parent path)
+    char *parent_path = malloc(length + 1); // +1 for null terminator
+    if (parent_path == NULL)
+    {
+        return NULL; // Memory allocation failed
+    }
+
+    // Copy the substring into the new string
+    strncpy(parent_path, path, length);
+    parent_path[length] = '\0'; // Null-terminate the string
+
+    // Find the log entry for the parent path
+    struct wfs_log_entry *logptr = path_to_logentry(parent_path);
+    free(parent_path);
+
+    return logptr;
+}
+
+unsigned int Max_InodeNum()
+{
+    char *currentPtr = (char *)((char *)disk + sizeof(struct wfs_sb));
+    struct wfs_log_entry *currentLogEntry = (struct wfs_log_entry *)currentPtr;
+    unsigned int maxInodeNum = 0;
+
+    while (currentPtr < (char *)disk + sb->head)
+    {
+        currentLogEntry = (struct wfs_log_entry *)currentPtr;
+        if (currentLogEntry->inode.inode_number > maxInodeNum && !currentLogEntry->inode.deleted)
         {
-            final = lep;
+            maxInodeNum = currentLogEntry->inode.inode_number;
         }
+        currentPtr += sizeof(struct wfs_inode) + currentLogEntry->inode.size;
     }
-    // not found
-    return final;
+    return maxInodeNum;
 }
 
-struct wfs_inode *get_inode(unsigned inode_number)
+struct wfs_log_entry *get_log_entry(unsigned int inodeNumber)
 {
-    // Assuming log_entry is a global array of wfs_log_entry structures
-    // and that each entry in this array corresponds to an inode in the filesystem
+    char *currentPtr = (char *)(disk + sizeof(struct wfs_sb));
+    struct wfs_log_entry *currentLogEntry = (struct wfs_log_entry *)currentPtr;
+    struct wfs_log_entry *targetLogEntry = NULL;
 
-    // // Check if the inode number is within the valid range
-    // if (inode_number >= MAX_INODES)
-    // {
-    //     return NULL; // Invalid inode number
-    // } todo: delete
-
-    // Access the inode from the log_entry array
-    struct wfs_log_entry *entry = &log_entry[inode_number];
-
-    // Check if the inode is marked as deleted or is otherwise invalid
-    if (entry->inode.deleted)
+    while (currentPtr < (char *)disk + sb->head)
     {
-        return NULL; // Inode is deleted
-    }
-
-    return &entry->inode; // Return the inode structure
-}
-
-void add_directory_entry(struct wfs_inode *dir_inode, const char *entry_name, unsigned long inode_number)
-{
-    if (dir_inode == NULL || (dir_inode->mode & S_IFMT) != S_IFDIR)
-    {
-        return; // Not a directory or null inode
-    }
-
-    struct wfs_dentry *dentry = (struct wfs_dentry *)(log_entry[dir_inode->inode_number].data + dir_inode->size);
-    strncpy(dentry->name, entry_name, MAX_FILE_NAME_LEN - 1);
-    dentry->name[MAX_FILE_NAME_LEN - 1] = '\0'; // Ensure null termination
-    dentry->inode_number = inode_number;
-
-    // Update the size of the directory inode to reflect the new entry
-    dir_inode->size += sizeof(struct wfs_dentry);
-    // Update timestamps
-    dir_inode->mtime = dir_inode->ctime = time(NULL);
-}
-
-unsigned long get_inode_number(char *name, struct wfs_log_entry *l)
-{
-    char *end_ptr = (char *)l + (sizeof(struct wfs_inode) + l->inode.size);
-    char *cur = l->data; // begin at dentry
-    struct wfs_dentry *d_ptr = (struct wfs_dentry *)cur;
-    for (; cur < end_ptr; cur += sizeof(struct wfs_dentry))
-    {
-        d_ptr = (struct wfs_dentry *)cur;
-        if (strcmp(name, d_ptr->name) == 0)
+        currentLogEntry = (struct wfs_log_entry *)currentPtr;
+        if (currentLogEntry->inode.inode_number == inodeNumber && !currentLogEntry->inode.deleted)
         {
-            return d_ptr->inode_number;
+            targetLogEntry = currentLogEntry;
+            break;
         }
+        currentPtr += sizeof(struct wfs_inode) + currentLogEntry->inode.size;
     }
-    // not found
-    return -1;
+    return targetLogEntry;
 }
 
 struct wfs_log_entry *path_to_logentry(const char *path)
 {
-
-    char *path_copy = strdup(path);
-    if (path_copy == NULL)
+    char *pathCopy = strdup(path);
+    if (!pathCopy)
     {
         perror("Failed to duplicate path string");
         return NULL;
     }
-    // int slashes = count_slashes(path);
 
-    unsigned long inodenum = 0;
+    unsigned long inodeNum = 0;
+    struct wfs_log_entry *currentLogEntry = get_log_entry(inodeNum);
+    char *token = strtok(pathCopy, "/");
 
-    struct wfs_log_entry *logptr = NULL;
-
-    // find root first
-    logptr = get_log_entry(inodenum);
-
-    puts(path);
-
-    char *token = strtok(path_copy, "/");
-    while (token != NULL)
+    while (token)
     {
-        if (logptr == NULL)
+        if (!currentLogEntry)
         {
+            free(pathCopy);
             return NULL;
         }
-        inodenum = get_inode_number(token, logptr);
-        if (inodenum == -1)
+        inodeNum = get_inode_number(token, currentLogEntry);
+        if (inodeNum == (unsigned long)-1)
         {
+            free(pathCopy);
             return NULL;
         }
 
-        logptr = get_log_entry(inodenum);
-
+        currentLogEntry = get_log_entry(inodeNum);
         token = strtok(NULL, "/");
     }
-    free(path_copy);
-    return logptr;
+    free(pathCopy);
+    return currentLogEntry;
 }
 
-struct wfs_inode *path_to_inode(const char *path)
+unsigned long get_inode_number(char *name, struct wfs_log_entry *logEntry)
 {
-    // Handle special case of root directory
-    if (strcmp(path, "/") == 0)
+    char *endPtr = (char *)logEntry + sizeof(struct wfs_inode) + logEntry->inode.size;
+    for (char *currentPtr = logEntry->data; currentPtr < endPtr; currentPtr += sizeof(struct wfs_dentry))
     {
-        return get_inode(0); // Function to get the root inode
-    }
-
-    struct wfs_inode *current_inode = get_inode(0);
-    if (current_inode == NULL)
-    {
-        return NULL; // Root inode not found
-    }
-
-    // Tokenize the path
-    char *path_copy = strdup(path);
-    char *token = strtok(path_copy, "/");
-
-    while (token != NULL)
-    {
-        if ((current_inode->mode & S_IFMT) != S_IFDIR)
+        struct wfs_dentry *dentry = (struct wfs_dentry *)currentPtr;
+        if (strcmp(name, dentry->name) == 0)
         {
-            free(path_copy);
-            return NULL; // Current inode is not a directory
+            return dentry->inode_number;
         }
-
-        // Find the inode number for the token
-        unsigned long inode_number = inode_for_name(token, &log_entry[current_inode->inode_number]);
-        if (inode_number == 0)
-        {
-            free(path_copy);
-            return NULL; // Directory entry not found
-        }
-
-        current_inode = get_inode(inode_number);
-        if (current_inode == NULL)
-        {
-            free(path_copy);
-            return NULL; // Inode not found
-        }
-
-        token = strtok(NULL, "/"); // Get the next component of the path
     }
-
-    free(path_copy);
-    return current_inode;
-}
-unsigned long parent_inode_number(const char *path)
-{
-    if (strcmp(path, "/") == 0)
-    {
-        // Root directory has no parent, or it is its own parent
-        return 0;
-    }
-
-    // Make a copy of the path to work with
-    char *path_copy = strdup(path);
-    if (path_copy == NULL)
-    {
-        // Handle memory allocation error
-        return -1; // Indicate an error
-    }
-
-    // Find the last '/' character - this separates the parent path from the current directory/file
-    char *last_slash = strrchr(path_copy, '/');
-    if (last_slash == path_copy)
-    {
-        // The parent is the root directory
-        free(path_copy);
-        return 0;
-    }
-
-    // Terminate the path at the last '/' to get the parent's path
-    *last_slash = '\0';
-
-    // Get the inode of the parent directory
-    struct wfs_inode *parent_inode = path_to_inode(path_copy);
-    unsigned long parent_inode_number = (parent_inode != NULL) ? parent_inode->inode_number : 0;
-
-    free(path_copy); // Free the allocated memory
-    return parent_inode_number;
-}
-
-void add_inode_to_filesystem(struct wfs_inode *inode)
-{
-    if (inode == NULL)
-    {
-        return; // Null inode
-    }
-
-    // Assuming log_entry is a global array or similar structure
-    // and head is the index for the next free entry in log_entry
-    log_entry[sb->head].inode = *inode;
-
-    // Update the head to point to the next free entry
-    sb->head += sizeof(struct wfs_log_entry) + inode->size;
-
-    // TODO: check if need to update filesystem metadata if necessary
-    // (e.g., updating the number of inodes, free space, etc.)
+    return (unsigned long)-1;
 }
 
 static int my_getattr(const char *path, struct stat *stbuf)
 {
-    // Implementation of getattr function to retrieve file attributes
-    // Fill stbuf structure with the attributes of the file/directory indicated by path
-    // ...
-
     memset(stbuf, 0, sizeof(struct stat));
 
-    if (strcmp(path, "/") == 0)
+    struct wfs_log_entry *log_entry = path_to_logentry(path);
+    if (log_entry == NULL)
     {
-        stbuf->st_mode = S_IFDIR | 0755;
-        stbuf->st_nlink = 2;
+        return -ENOENT; // No such file or directory
+    }
+    stbuf->st_mode = log_entry->inode.mode;
+    stbuf->st_nlink = log_entry->inode.links;
+    stbuf->st_size = log_entry->inode.size;
+    stbuf->st_uid = log_entry->inode.uid;
+    stbuf->st_gid = log_entry->inode.gid;
+    stbuf->st_mtime = log_entry->inode.mtime;
+    return 0;
+}
+
+static int my_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi)
+{
+    int len;
+    int ret = 0;
+    struct wfs_log_entry *file_entry = path_to_logentry(path);
+
+    len = file_entry->inode.size;
+
+    if (file_entry == NULL)
+    {
+        // File not found or error
+        return -ENOENT;
+    }
+
+    if (offset < len)
+    {
+        if (offset + size > len)
+        {
+            size = len - offset;
+        }
+        memcpy(buf, file_entry->data + offset, size);
+        ret = size;
     }
     else
     {
-        struct wfs_inode *inode = path_to_inode(path);
-        if (inode == NULL)
-        {
-            return -ENOENT;
-        }
-        else
-        {
-            if (inode->mode == S_IFDIR)
-            {
-                stbuf->st_mode = S_IFDIR | 00777;
-                stbuf->st_nlink = 1; // todo:check 1 or 2
-            }
-            else
-            {
-                stbuf->st_mode = S_IFREG | 0444;
-                stbuf->st_nlink = 1;
-                stbuf->st_size = inode->size;
-            }
-        }
+        ret = 0; // Offset is past the end of the file, overflow
     }
-    return 0;
+
+    return ret;
 }
-static int my_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi)
+static int my_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi)
 {
-    struct wfs_inode *inode = path_to_inode(path);
-    if (inode == NULL)
+    struct wfs_log_entry *l = path_to_logentry(path);
+    struct wfs_log_entry *parent = find_parent_log_path(path);
+
+    if (l == NULL || parent == NULL)
     {
-        return -ENOENT; // File not found
-    }
-
-    if ((inode->mode & S_IFMT) != S_IFREG)
-    {
-        return -EISDIR; // Reading a directory is not allowed
-    }
-
-    if (offset >= inode->size)
-    {
-        return 0; // Offset is beyond the end of the file
-    }
-
-    if (offset + size > inode->size)
-    {
-        size = inode->size - offset; // Adjust size to not exceed file length
-    }
-
-    // Access the data from the log entry corresponding to the inode
-    struct wfs_log_entry *entry = &log_entry[inode->inode_number];
-
-    // Copy the data from entry->data to buf
-    memcpy(buf, entry->data + offset, size);
-
-    return size;
-}
-
-static int my_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
-                      off_t offset, struct fuse_file_info *fi)
-{
-    // Check if the path is the root directory
-    if (strcmp(path, "/") != 0)
         return -ENOENT;
+    }
 
-    filler(buf, ".", NULL, 0);
-    filler(buf, "..", NULL, 0);
+    struct stat st;
 
-    struct wfs_inode *dir_inode = path_to_inode(path);
-    if (dir_inode == NULL || (dir_inode->mode & S_IFMT) != S_IFDIR)
-        return -ENOENT; // Not a directory or directory does not exist
+    // Current directory (".")
+    memset(&st, 0, sizeof(st));
+    st.st_ino = l->inode.inode_number;
+    st.st_mode = l->inode.mode;
+    if (filler(buf, ".", &st, 0))
+        return 0;
 
-    struct wfs_dentry *dentry = (struct wfs_dentry *)log_entry[dir_inode->inode_number].data;
-    for (unsigned int i = 0; i < dir_inode->size / sizeof(struct wfs_dentry); ++i)
+    // Parent directory ("..")
+    memset(&st, 0, sizeof(st));
+    st.st_ino = parent->inode.inode_number;
+    st.st_mode = parent->inode.mode;
+    if (filler(buf, "..", &st, 0))
+        return 0;
+
+    // Iterate over the directory's entries
+    char *end_ptr = (char *)l + (sizeof(struct wfs_inode) + l->inode.size);
+    for (char *cur = l->data; cur < end_ptr; cur += sizeof(struct wfs_dentry))
     {
-        if (dentry[i].inode_number != 0)
-        { // Skip empty entries
-            filler(buf, dentry[i].name, NULL, 0);
+        struct wfs_dentry *d_ptr = (struct wfs_dentry *)cur;
+
+        if (get_log_entry(d_ptr->inode_number)->inode.deleted == 0)
+        {
+            memset(&st, 0, sizeof(st));
+            st.st_ino = d_ptr->inode_number;
+            st.st_mode = get_log_entry(d_ptr->inode_number)->inode.mode;
+
+            if (filler(buf, d_ptr->name, &st, 0))
+                break;
         }
     }
 
     return 0;
-}
-
-int my_mkdir(const char *path, mode_t mode)
-{
-    // Check if the directory already exists
-    struct wfs_inode *existing_inode = path_to_inode(path);
-    if (existing_inode != NULL)
-    {
-        // The directory already exists
-        return -EEXIST;
-    }
-
-    // Allocate a new inode for the directory
-    struct wfs_inode *dir_inode = malloc(sizeof(struct wfs_inode));
-    if (dir_inode == NULL)
-    {
-        // Failed to allocate inode
-        return -ENOSPC;
-    }
-
-    // Initialize the inode for a directory
-    dir_inode->mode = S_IFDIR | (mode & 0777);
-    dir_inode->size = 0;
-    dir_inode->links = 2; // todo: check 1 or 2
-    dir_inode->atime = dir_inode->mtime = dir_inode->ctime = time(NULL);
-
-    // Add '.' and '..' entries to the directory
-    // You will need a function to add entries to a directory
-    add_directory_entry(dir_inode, ".", dir_inode->inode_number);
-    add_directory_entry(dir_inode, "..", parent_inode_number(path)); // Parent directory's inode number
-
-    // Update the filesystem's structures to include the new directory
-    add_inode_to_filesystem(dir_inode);
-
-    return 0; // Success
 }
 
 int my_mknod(const char *path, mode_t mode, dev_t dev)
 {
-    // Check if the file already exists
-    struct wfs_inode *existing_inode = path_to_inode(path);
-    if (existing_inode != NULL)
+    if (path == NULL)
     {
-        // The file already exists
+        return -EINVAL; // Invalid argument
+    }
+    const char *pos = strrchr(path, '/'); // Find the last '/'
+    const char *fileName;
+    if (pos != NULL)
+    {
+        fileName = pos + 1;
+    }
+    else // No '/' found
+    {
+        fileName = path;
+    }
+
+    struct wfs_log_entry *parent_log = find_parent_log_path(path);
+    unsigned int new_inodenum = Max_InodeNum() + 1;
+
+    if (get_inode_number((char *)fileName, parent_log) != -1)
+    {
+        return -EEXIST;
+    }
+    // append new parent log
+    struct wfs_log_entry *new_parent_log = (struct wfs_log_entry *)((char *)disk + sb->head);
+
+    memcpy((char *)new_parent_log, (char *)parent_log, sizeof(struct wfs_log_entry) + parent_log->inode.size);
+
+    struct wfs_dentry *new_dentry = (void *)((char *)new_parent_log->data + new_parent_log->inode.size);
+    strcpy(new_dentry->name, fileName);
+    new_dentry->inode_number = new_inodenum;
+
+    // update size and head
+    new_parent_log->inode.size = new_parent_log->inode.size + sizeof(struct wfs_dentry);
+    sb->head = sb->head + (uint32_t)(sizeof(struct wfs_inode) + new_parent_log->inode.size);
+
+    // append new log for new inode
+    struct wfs_log_entry *new_file_entry = (struct wfs_log_entry *)((char *)disk + sb->head);
+    new_file_entry->inode.inode_number = new_inodenum;
+    new_file_entry->inode.atime = time(NULL);
+    new_file_entry->inode.mtime = time(NULL);
+    new_file_entry->inode.ctime = time(NULL);
+    new_file_entry->inode.deleted = 0;
+    new_file_entry->inode.flags = 0;
+    new_file_entry->inode.gid = getuid();
+    new_file_entry->inode.uid = getuid();
+    new_file_entry->inode.links = 1;
+    new_file_entry->inode.mode = mode | S_IFREG;
+    new_file_entry->inode.size = 0;
+
+    sb->head = sb->head + (uint32_t)(sizeof(struct wfs_inode));
+
+    return 0;
+}
+int my_mkdir(const char *path, mode_t mode)
+{
+    if (path == NULL)
+    {
+        return -EINVAL; // Invalid argument
+    }
+
+    // Find the last occurrence of '/'
+    const char *last_slash = strrchr(path, '/');
+    const char *file_name;
+    if (last_slash != NULL)
+    {
+        // Return the substring after the last slash
+        file_name = last_slash + 1;
+    }
+    else
+    {
+        // The path does not have a slash, use the whole path as the file name
+        file_name = path;
+    }
+
+    struct wfs_log_entry *parent_log = find_parent_log_path(path);
+    unsigned int new_inodenum = Max_InodeNum() + 1;
+
+    if (get_inode_number((char *)file_name, parent_log) != -1)
+    {
         return -EEXIST;
     }
 
-    // Allocate a new inode
-    struct wfs_inode *new_inode = malloc(sizeof(struct wfs_inode));
-    if (new_inode == NULL)
-    {
-        // Failed to allocate inode
-        return -ENOSPC;
-    }
+    // append new parent log
+    struct wfs_log_entry *new_parent_log = (struct wfs_log_entry *)((char *)disk + sb->head);
+    memcpy((char *)new_parent_log, (char *)parent_log, sizeof(struct wfs_log_entry) + parent_log->inode.size);
+    // *new_parent_log = *parent_log;
 
-    // Initialize the inode for a regular file
-    new_inode->mode = S_IFREG | (mode & 0777);                           // Regular file type with specified permissions
-    new_inode->size = 0;                                                 // Initial size for the file
-    new_inode->links = 1;                                                // Standard for files
-    new_inode->atime = new_inode->mtime = new_inode->ctime = time(NULL); // Set timestamps
-    new_inode->inode_number = get_next_inode_number();                   // Function to get the next available inode number
-    new_inode->deleted = 0;                                              // File is not deleted
+    struct wfs_dentry *new_dentry = (void *)((char *)new_parent_log->data + new_parent_log->inode.size);
+    strcpy(new_dentry->name, file_name);
+    new_dentry->inode_number = new_inodenum;
 
-    // Add the inode to the filesystem's structures
-    add_inode_to_filesystem(new_inode);
+    // update size and head
+    new_parent_log->inode.size = new_parent_log->inode.size + sizeof(struct wfs_dentry);
+    sb->head = sb->head + (uint32_t)(sizeof(struct wfs_inode) + new_parent_log->inode.size);
 
-    return 0; // Success
+    // append new log for new inode
+    struct wfs_log_entry *new_file_entry = (struct wfs_log_entry *)((char *)disk + sb->head);
+    new_file_entry->inode.inode_number = new_inodenum;
+    new_file_entry->inode.atime = time(NULL);
+    new_file_entry->inode.mtime = time(NULL);
+    new_file_entry->inode.ctime = time(NULL);
+    new_file_entry->inode.deleted = 0;
+    new_file_entry->inode.flags = 0;
+    new_file_entry->inode.gid = getuid();
+    new_file_entry->inode.uid = getuid();
+    new_file_entry->inode.links = 1;
+    new_file_entry->inode.mode = S_IFDIR | mode;
+    new_file_entry->inode.size = 0;
+
+    sb->head = sb->head + (uint32_t)(sizeof(struct wfs_inode));
+    return 0;
 }
 
 int my_write(const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fi)
 {
-    // Find the inode associated with the path
-    struct wfs_inode *inode = path_to_inode(path);
-    if (inode == NULL)
+    struct wfs_log_entry *file_entry = path_to_logentry(path);
+    if (file_entry == NULL)
     {
         return -ENOENT; // File not found
     }
 
-    if ((inode->mode & S_IFMT) != S_IFREG)
+    if ((file_entry->inode.mode & S_IFMT) != S_IFREG)
     {
         return -EISDIR; // Can't write to a directory
     }
 
-    // Assuming that the file's data is stored directly in log_entry[inode->inode_number].data
-    struct wfs_log_entry *entry = &log_entry[inode->inode_number];
-
-    // Ensure the write does not exceed the filesystem limits
-    // You need to handle reallocation if size+offset exceeds current allocation
-    if (offset + size > inode->size)
+    if (offset + size > file_entry->inode.size)
     {
-        return -EFBIG; // File too large
+        return -ENOSPC; // No space left on device
     }
 
     // Perform the write operation
-    memcpy(entry->data + offset, buf, size);
-
-    // Update the inode's size if the file has grown
-    if (offset + size > inode->size)
-    {
-        inode->size = offset + size;
-    }
+    memcpy(file_entry->data + offset, buf, size);
 
     // Update the inode's modification time
-    inode->mtime = time(NULL);
+    file_entry->inode.mtime = time(NULL);
 
-    return size; // Return the number of bytes written
+    return size;
 }
 
 int my_unlink(const char *path)
 {
-    // Find the inode associated with the path
-    struct wfs_inode *inode = path_to_inode(path);
-    if (inode == NULL)
+    struct wfs_log_entry *file_entry = path_to_logentry(path);
+    if (file_entry == NULL)
     {
         return -ENOENT; // File not found
     }
 
-    if ((inode->mode & S_IFMT) == S_IFDIR)
+    if ((file_entry->inode.mode & S_IFMT) == S_IFDIR)
     {
         return -EISDIR; // Can't unlink a directory
     }
 
     // Mark the inode as deleted
-    inode->deleted = 1;
-
-    // If your filesystem uses a mechanism to free the space used by the file,
-    // implement it here
-
-    return 0; // Success
+    file_entry->inode.deleted = 1;
+    return 0;
 }
 
 static struct fuse_operations my_operations = {
