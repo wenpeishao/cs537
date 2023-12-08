@@ -50,8 +50,8 @@ struct wfs_inode *get_inode(unsigned inode_number);
 struct wfs_inode *path_to_inode(const char *path);
 struct wfs_log_entry *get_log_entry(unsigned inode_number);
 unsigned long get_inode_number(char *name, struct wfs_log_entry *log_entry);
-struct wfs_log_entry *path_to_logentry(const char *path);
-
+// struct wfs_log_entry *path_to_logentry(const char *path);
+struct wfs_log_entry *path_to_log_entry(const char *path);
 unsigned long parent_inode_number(const char *path);
 
 struct wfs_private
