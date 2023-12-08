@@ -399,6 +399,7 @@ int my_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset
 
 static int wfs_unlink(const char *path)
 {
+
     return 0;
 }
 

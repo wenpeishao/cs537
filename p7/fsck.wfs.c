@@ -9,6 +9,7 @@
 #include <sys/mman.h>
 #include <unistd.h>
 #include <string.h>
+#include <stdlib.h>
 
 void compact_entries(void *disk_map, size_t disk_size, struct wfs_sb *sb)
 {
