@@ -61,7 +61,7 @@ void init_wfs(const char *disk_path)
     log_entry->inode.links = 1;                                                            // At least one link
 
     // Update the head to point after the root inode
-    sb->head += sizeof(struct wfs_inode) + sizeof(struct wfs_log_entry);
+    sb->head += sizeof(struct wfs_log_entry);
 
     // Synchronize memory-mapped content to disk
     if (msync(disk_map, disk_size, MS_SYNC) == -1)
