@@ -361,18 +361,18 @@ int my_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset
 
 static int wfs_unlink(const char *path)
 {
-    // struct wfs_log_entry *file_entry = path_to_log_entry(path);
-    // if (file_entry == NULL)
-    // {
-    //     return -ENOENT;
-    // }
+    struct wfs_log_entry *file_entry = path_to_log_entry(path);
+    if (file_entry == NULL)
+    {
+        return -ENOENT;
+    }
 
-    // // if ((file_entry->inode.mode & S_IFMT) == S_IFDIR)
-    // // {
-    // //     return -EISDIR; // Can't unlink a directory
-    // // }
+    if ((file_entry->inode.mode & S_IFMT) == S_IFDIR)
+    {
+        return -EISDIR; // Can't unlink a directory
+    }
 
-    // file_entry->inode.deleted = 1;
+    file_entry->inode.deleted = 1;
     return 0;
 }
 
